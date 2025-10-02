@@ -1,0 +1,672 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../models/document.dart';
+
+class AnalysisResultScreen extends StatefulWidget {
+  final Document document;
+
+  const AnalysisResultScreen({super.key, required this.document});
+
+  @override
+  State<AnalysisResultScreen> createState() => _AnalysisResultScreenState();
+}
+
+class _AnalysisResultScreenState extends State<AnalysisResultScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Color _getRiskColor(double riskScore) {
+    if (riskScore <= 3) return Colors.green;
+    if (riskScore <= 6) return Colors.orange;
+    return Colors.red;
+  }
+
+  String _getRiskText(double riskScore) {
+    if (riskScore <= 3) return 'Low Risk';
+    if (riskScore <= 6) return 'Medium Risk';
+    return 'High Risk';
+  }
+
+  Color _getSeverityColor(FlagSeverity severity) {
+    switch (severity) {
+      case FlagSeverity.low:
+        return Colors.blue;
+      case FlagSeverity.medium:
+        return Colors.orange;
+      case FlagSeverity.high:
+        return Colors.red;
+      case FlagSeverity.critical:
+        return Colors.red[900]!;
+    }
+  }
+
+  IconData _getSeverityIcon(FlagSeverity severity) {
+    switch (severity) {
+      case FlagSeverity.low:
+        return Icons.info;
+      case FlagSeverity.medium:
+        return Icons.warning;
+      case FlagSeverity.high:
+        return Icons.error;
+      case FlagSeverity.critical:
+        return Icons.dangerous;
+    }
+  }
+
+  Color _getImportanceColor(ClauseImportance importance) {
+    switch (importance) {
+      case ClauseImportance.low:
+        return Colors.green;
+      case ClauseImportance.medium:
+        return Colors.orange;
+      case ClauseImportance.high:
+        return Colors.red;
+      case ClauseImportance.critical:
+        return Colors.red[900]!;
+    }
+  }
+
+  String _getFlagTypeDisplayName(FlagType type) {
+    switch (type) {
+      case FlagType.hiddenFee:
+        return 'Hidden Fee';
+      case FlagType.unfavorableTerm:
+        return 'Unfavorable Term';
+      case FlagType.missingClause:
+        return 'Missing Clause';
+      case FlagType.loophole:
+        return 'Loophole';
+      case FlagType.automaticRenewal:
+        return 'Auto Renewal';
+      case FlagType.penaltyClause:
+        return 'Penalty Clause';
+      case FlagType.limitedLiability:
+        return 'Limited Liability';
+      case FlagType.other:
+        return 'Other Issue';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final analysis = widget.document.analysis;
+    final riskScore = analysis?.riskScore ?? 0.0;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Analysis Results'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: 'Overview'),
+            Tab(text: 'Flags'),
+            Tab(text: 'Clauses'),
+            Tab(text: 'Full Text'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildOverviewTab(),
+          _buildFlagsTab(),
+          _buildClausesTab(),
+          _buildFullTextTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewTab() {
+    final analysis = widget.document.analysis;
+    final riskScore = analysis?.riskScore ?? 0.0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Document Info Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.description,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Document Information',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildInfoRow('File Name:', widget.document.fileName),
+                  _buildInfoRow('Scan Date:', DateFormat('MMM d, y - h:mm a').format(widget.document.scanDate)),
+                  _buildInfoRow('Document Type:', widget.document.type.toString().split('.').last.toUpperCase()),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Risk Score Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.security,
+                        color: _getRiskColor(riskScore),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Risk Assessment',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: LinearProgressIndicator(
+                          value: riskScore / 10,
+                          backgroundColor: Colors.grey[300],
+                          valueColor: AlwaysStoppedAnimation<Color>(_getRiskColor(riskScore)),
+                          minHeight: 8,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _getRiskColor(riskScore).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          _getRiskText(riskScore),
+                          style: TextStyle(
+                            color: _getRiskColor(riskScore),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${riskScore.toStringAsFixed(1)}/10.0',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Summary Card
+          if (analysis?.summary != null) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.summarize,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Summary',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      analysis!.summary,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Quick Stats
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  'Flags Found',
+                  '${analysis?.flags.length ?? 0}',
+                  Icons.flag,
+                  Colors.red,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildStatCard(
+                  'Key Clauses',
+                  '${analysis?.importantClauses.length ?? 0}',
+                  Icons.gavel,
+                  Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Recommendations
+          if (analysis?.recommendations.isNotEmpty == true) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Recommendations',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...analysis!.recommendations.map((recommendation) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 16,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(recommendation),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlagsTab() {
+    final flags = widget.document.analysis?.flags ?? [];
+
+    if (flags.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.check_circle,
+              size: 80,
+              color: Colors.green,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No Issues Found',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'This document appears to be free of major concerns.',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: flags.length,
+      itemBuilder: (context, index) {
+        final flag = flags[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ExpansionTile(
+            leading: Icon(
+              _getSeverityIcon(flag.severity),
+              color: _getSeverityColor(flag.severity),
+            ),
+            title: Text(
+              flag.title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(_getFlagTypeDisplayName(flag.type)),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Description:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(flag.description),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Highlighted Text:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.yellow[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.yellow[300]!),
+                      ),
+                      child: Text(
+                        flag.highlightedText,
+                        style: const TextStyle(fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildClausesTab() {
+    final clauses = widget.document.analysis?.importantClauses ?? [];
+
+    if (clauses.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.gavel,
+              size: 80,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No Key Clauses Identified',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: clauses.length,
+      itemBuilder: (context, index) {
+        final clause = clauses[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ExpansionTile(
+            leading: Container(
+              width: 8,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _getImportanceColor(clause.importance),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            title: Text(
+              clause.title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Importance: ${clause.importance.toString().split('.').last.toUpperCase()}',
+              style: TextStyle(color: _getImportanceColor(clause.importance)),
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Plain English Explanation:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green[200]!),
+                      ),
+                      child: Text(
+                        clause.simplifiedExplanation,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Original Legal Text:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        clause.originalText,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFullTextTab() {
+    final extractedText = widget.document.extractedText;
+
+    if (extractedText == null || extractedText.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.text_snippet,
+              size: 80,
+              color: Colors.grey,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'No Text Available',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.text_snippet,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Extracted Text',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: SelectableText(
+                  extractedText,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
