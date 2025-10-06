@@ -1,0 +1,460 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/user_provider.dart';
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+
+                // Header
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.arrow_back,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Settings',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 30),
+
+                // Profile Section
+                _buildSection(
+                  context,
+                  title: 'Profile',
+                  isDark: isDark,
+                  children: [
+                    _buildProfileTile(
+                      context,
+                      icon: Icons.person_outline,
+                      label: 'Name',
+                      value: userProvider.userName,
+                      isDark: isDark,
+                      onTap: () => _showEditDialog(
+                        context,
+                        title: 'Edit Name',
+                        currentValue: userProvider.userName,
+                        onSave: (value) => userProvider.updateUserName(value),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildProfileTile(
+                      context,
+                      icon: Icons.phone_outlined,
+                      label: 'Phone Number',
+                      value: userProvider.phoneNumber.isEmpty
+                          ? 'Not set'
+                          : userProvider.phoneNumber,
+                      isDark: isDark,
+                      onTap: () => _showEditDialog(
+                        context,
+                        title: 'Edit Phone Number',
+                        currentValue: userProvider.phoneNumber,
+                        keyboardType: TextInputType.phone,
+                        onSave: (value) => userProvider.updatePhoneNumber(value),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Appearance Section
+                _buildSection(
+                  context,
+                  title: 'Appearance',
+                  isDark: isDark,
+                  children: [
+                    _buildThemeTile(
+                      context,
+                      icon: Icons.light_mode_outlined,
+                      label: 'Light Mode',
+                      isSelected: !isDark,
+                      isDark: isDark,
+                      onTap: () {
+                        if (isDark) themeProvider.toggleTheme();
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildThemeTile(
+                      context,
+                      icon: Icons.dark_mode_outlined,
+                      label: 'Dark Mode',
+                      isSelected: isDark,
+                      isDark: isDark,
+                      onTap: () {
+                        if (!isDark) themeProvider.toggleTheme();
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // About Section
+                _buildSection(
+                  context,
+                  title: 'About',
+                  isDark: isDark,
+                  children: [
+                    _buildInfoTile(
+                      context,
+                      icon: Icons.info_outline,
+                      label: 'Version',
+                      value: '1.0.0',
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInfoTile(
+                      context,
+                      icon: Icons.description_outlined,
+                      label: 'Terms & Conditions',
+                      isDark: isDark,
+                      onTap: () {
+                        // Navigate to terms
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildInfoTile(
+                      context,
+                      icon: Icons.privacy_tip_outlined,
+                      label: 'Privacy Policy',
+                      isDark: isDark,
+                      onTap: () {
+                        // Navigate to privacy policy
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required bool isDark,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF252525) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(children: children),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: const Color(0xFF2563EB),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: isDark ? Colors.grey[600] : Colors.grey[400],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF2563EB).withOpacity(0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF2563EB)
+                : (isDark ? Colors.grey[800]! : Colors.grey[300]!),
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected
+                  ? const Color(0xFF2563EB)
+                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected
+                      ? const Color(0xFF2563EB)
+                      : (isDark ? Colors.white : Colors.black),
+                ),
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFF2563EB),
+                size: 24,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    String? value,
+    required bool isDark,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+            ),
+            if (value != null)
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              )
+            else if (onTap != null)
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(
+    BuildContext context, {
+    required String title,
+    required String currentValue,
+    required Function(String) onSave,
+    TextInputType? keyboardType,
+  }) async {
+    final controller = TextEditingController(text: currentValue);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF252525) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          autofocus: true,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              onSave(controller.text);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Save',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

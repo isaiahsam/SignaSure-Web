@@ -6,6 +6,8 @@ class Document {
   final DocumentType type;
   final String? extractedText;
   final DocumentAnalysis? analysis;
+  final bool isFavorite;
+  final String? customTitle;
 
   Document({
     required this.id,
@@ -15,6 +17,8 @@ class Document {
     required this.type,
     this.extractedText,
     this.analysis,
+    this.isFavorite = false,
+    this.customTitle,
   });
 
   Map<String, dynamic> toJson() {
@@ -26,6 +30,8 @@ class Document {
       'type': type.toString(),
       'extractedText': extractedText,
       'analysis': analysis?.toJson(),
+      'isFavorite': isFavorite ? 1 : 0,
+      'customTitle': customTitle,
     };
   }
 
@@ -43,8 +49,12 @@ class Document {
       analysis: json['analysis'] != null
           ? DocumentAnalysis.fromJson(json['analysis'])
           : null,
+      isFavorite: json['isFavorite'] == 1,
+      customTitle: json['customTitle'],
     );
   }
+
+  String get displayTitle => customTitle ?? fileName;
 }
 
 enum DocumentType {

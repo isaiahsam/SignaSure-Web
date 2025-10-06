@@ -17,8 +17,9 @@ class DatabaseService {
     String dbPath = path.join(await getDatabasesPath(), 'signasure.db');
     return await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: _createDatabase,
+      onUpgrade: _upgradeDatabase,
     );
   }
 
@@ -31,9 +32,19 @@ class DatabaseService {
         scanDate TEXT NOT NULL,
         type TEXT NOT NULL,
         extractedText TEXT,
-        analysis TEXT
+        analysis TEXT,
+        isFavorite INTEGER DEFAULT 0,
+        customTitle TEXT
       )
     ''');
+  }
+
+  static Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add new columns if they don't exist
+      await db.execute('ALTER TABLE $_tableName ADD COLUMN isFavorite INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE $_tableName ADD COLUMN customTitle TEXT');
+    }
   }
 
   static Future<void> insertDocument(Document document) async {
@@ -50,6 +61,8 @@ class DatabaseService {
         'analysis': document.analysis != null
             ? jsonEncode(document.analysis!.toJson())
             : null,
+        'isFavorite': document.isFavorite ? 1 : 0,
+        'customTitle': document.customTitle,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -77,6 +90,8 @@ class DatabaseService {
         analysis: map['analysis'] != null
             ? DocumentAnalysis.fromJson(jsonDecode(map['analysis']))
             : null,
+        isFavorite: map['isFavorite'] == 1,
+        customTitle: map['customTitle'],
       );
     });
   }
@@ -104,6 +119,8 @@ class DatabaseService {
         analysis: map['analysis'] != null
             ? DocumentAnalysis.fromJson(jsonDecode(map['analysis']))
             : null,
+        isFavorite: map['isFavorite'] == 1,
+        customTitle: map['customTitle'],
       );
     }
     return null;
@@ -122,9 +139,31 @@ class DatabaseService {
         'analysis': document.analysis != null
             ? jsonEncode(document.analysis!.toJson())
             : null,
+        'isFavorite': document.isFavorite ? 1 : 0,
+        'customTitle': document.customTitle,
       },
       where: 'id = ?',
       whereArgs: [document.id],
+    );
+  }
+
+  static Future<void> toggleFavorite(String id, bool isFavorite) async {
+    final db = await database;
+    await db.update(
+      _tableName,
+      {'isFavorite': isFavorite ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<void> updateTitle(String id, String? customTitle) async {
+    final db = await database;
+    await db.update(
+      _tableName,
+      {'customTitle': customTitle},
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 

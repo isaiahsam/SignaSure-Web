@@ -4,10 +4,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:provider/provider.dart';
 import '../services/ocr_service.dart';
 import '../services/ai_analysis_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
+import '../providers/theme_provider.dart';
 import 'analysis_result_screen.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -19,21 +21,21 @@ class UploadScreen extends StatefulWidget {
 
 class _UploadScreenState extends State<UploadScreen> {
   bool _isProcessing = false;
-  File? _selectedFile;
-  String? _fileName;
+  List<File> _selectedFiles = [];
+  List<String> _fileNames = [];
 
-  Future<void> _pickFile() async {
+  Future<void> _pickFiles() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'txt', 'doc', 'docx'],
-        allowMultiple: false,
+        allowMultiple: true,
       );
 
       if (result != null) {
         setState(() {
-          _selectedFile = File(result.files.single.path!);
-          _fileName = result.files.single.name;
+          _selectedFiles = result.files.map((file) => File(file.path!)).toList();
+          _fileNames = result.files.map((file) => file.name).toList();
         });
       }
     } catch (e) {
@@ -45,10 +47,17 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
-  Future<void> _processFile() async {
-    if (_selectedFile == null) {
+  void _removeFile(int index) {
+    setState(() {
+      _selectedFiles.removeAt(index);
+      _fileNames.removeAt(index);
+    });
+  }
+
+  Future<void> _processFiles() async {
+    if (_selectedFiles.isEmpty) {
       Fluttertoast.showToast(
-        msg: "Please select a file first",
+        msg: "Please select at least one file",
         toastLength: Toast.LENGTH_SHORT,
       );
       return;
@@ -59,25 +68,45 @@ class _UploadScreenState extends State<UploadScreen> {
         _isProcessing = true;
       });
 
-      // Extract text from file using OCR service
-      final extractedText = await OCRService.extractTextFromFile(_selectedFile!);
+      String combinedText = '';
 
-      if (extractedText == null || extractedText.trim().isEmpty) {
+      // Process all files
+      for (int i = 0; i < _selectedFiles.length; i++) {
+        final file = _selectedFiles[i];
         Fluttertoast.showToast(
-          msg: "No text found in the file. Please try again with a different file.",
+          msg: "Processing file ${i + 1} of ${_selectedFiles.length}...",
+          toastLength: Toast.LENGTH_SHORT,
+        );
+
+        // Extract text from file using OCR service
+        final extractedText = await OCRService.extractTextFromFile(file);
+
+        if (extractedText != null && extractedText.trim().isNotEmpty) {
+          combinedText += '\n\n--- Page ${i + 1} ---\n\n$extractedText';
+        }
+      }
+
+      if (combinedText.trim().isEmpty) {
+        Fluttertoast.showToast(
+          msg: "No text found in any of the files.",
           toastLength: Toast.LENGTH_LONG,
         );
+        setState(() {
+          _isProcessing = false;
+        });
         return;
       }
 
-      // Save file to app directory
+      // Save first file to app directory (or you can combine all files)
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'document_${DateTime.now().millisecondsSinceEpoch}_$_fileName';
+      final fileName = _selectedFiles.length > 1
+          ? 'document_${DateTime.now().millisecondsSinceEpoch}_${_selectedFiles.length}_pages'
+          : 'document_${DateTime.now().millisecondsSinceEpoch}_${_fileNames[0]}';
       final savedFile = File('${directory.path}/$fileName');
-      await _selectedFile!.copy(savedFile.path);
+      await _selectedFiles[0].copy(savedFile.path);
 
       // Determine document type based on content
-      final documentType = _determineDocumentType(extractedText);
+      final documentType = _determineDocumentType(combinedText);
 
       // Create document record
       final document = Document(
@@ -86,7 +115,7 @@ class _UploadScreenState extends State<UploadScreen> {
         fileName: fileName,
         scanDate: DateTime.now(),
         type: documentType,
-        extractedText: extractedText,
+        extractedText: combinedText,
       );
 
       // Save to database
@@ -120,12 +149,12 @@ class _UploadScreenState extends State<UploadScreen> {
 
       // Reset state
       setState(() {
-        _selectedFile = null;
-        _fileName = null;
+        _selectedFiles.clear();
+        _fileNames.clear();
       });
 
       Fluttertoast.showToast(
-        msg: "Document uploaded and analyzed successfully!",
+        msg: "Documents uploaded and analyzed successfully!",
         toastLength: Toast.LENGTH_SHORT,
       );
     } catch (e) {
@@ -200,13 +229,38 @@ class _UploadScreenState extends State<UploadScreen> {
     return bytes / (1024 * 1024);
   }
 
+  double _getTotalSizeInMB() {
+    double total = 0;
+    for (var file in _selectedFiles) {
+      total += _getFileSizeInMB(file);
+    }
+    return total;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth * 0.05;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
       appBar: AppBar(
-        title: const Text('Upload Document'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Upload Document',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+        elevation: 0,
       ),
       body: _isProcessing
           ? const Center(
@@ -225,62 +279,100 @@ class _UploadScreenState extends State<UploadScreen> {
                 ],
               ),
             )
-          : Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
+          : SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Upload icon and title
+                    Container(
+                      padding: const EdgeInsets.all(30),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: isDark
+                              ? [const Color(0xFF252525), const Color(0xFF2A2A2A)]
+                              : [Colors.white, Colors.grey[50]!],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: Column(
                         children: [
                           Icon(
-                            Icons.cloud_upload,
+                            Icons.cloud_upload_outlined,
                             size: 80,
                             color: Theme.of(context).primaryColor,
                           ),
                           const SizedBox(height: 20),
-                          const Text(
+                          Text(
                             'Upload Your Document',
                             style: TextStyle(
                               fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : Colors.black,
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'Select a document file to analyze for potential issues and loopholes',
+                          Text(
+                            'Select a document file to analyze for\npotential issues and loopholes',
                             style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              height: 1.5,
                             ),
                             textAlign: TextAlign.center,
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 30),
 
-                  // Supported file types
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+                    const SizedBox(height: 20),
+
+                    // Supported file types
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: isDark
+                              ? [const Color(0xFF252525), const Color(0xFF2A2A2A)]
+                              : [Colors.white, Colors.grey[50]!],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Supported File Types:',
+                          Text(
+                            'Supported File Types',
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : Colors.black,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Wrap(
-                            spacing: 10,
-                            runSpacing: 5,
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
                               _buildFileTypeChip('PDF'),
                               _buildFileTypeChip('JPG'),
@@ -293,106 +385,200 @@ class _UploadScreenState extends State<UploadScreen> {
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 30),
 
-                  // Selected file info
-                  if (_selectedFile != null) ...[
-                    Card(
-                      color: Colors.green[50],
-                      child: Padding(
+                    const SizedBox(height: 20),
+
+                    // Selected files info
+                    if (_selectedFiles.isNotEmpty) ...[
+                      Container(
                         padding: const EdgeInsets.all(16),
-                        child: Row(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: isDark
+                                ? [const Color(0xFF252525), const Color(0xFF2A2A2A)]
+                                : [Colors.white, Colors.grey[50]!],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0xFF3B82F6)
+                                : const Color(0xFF2563EB),
+                            width: 2,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _getFileIcon(_fileName),
-                              style: const TextStyle(fontSize: 24),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _fileName ?? 'Unknown file',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_getFileSizeInMB(_selectedFile!).toStringAsFixed(2)} MB',
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.description,
+                                  color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${_selectedFiles.length} file${_selectedFiles.length > 1 ? 's' : ''} selected',
                                     style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                      color: isDark ? Colors.white : Colors.black,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                Text(
+                                  '${_getTotalSizeInMB().toStringAsFixed(2)} MB',
+                                  style: TextStyle(
+                                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedFile = null;
-                                  _fileName = null;
-                                });
-                              },
-                              icon: const Icon(Icons.close),
+                            const SizedBox(height: 12),
+                            ...List.generate(
+                              _selectedFiles.length,
+                              (index) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2563EB).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        Icons.insert_drive_file,
+                                        size: 20,
+                                        color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _fileNames[index],
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                              color: isDark ? Colors.white : Colors.black,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            '${_getFileSizeInMB(_selectedFiles[index]).toStringAsFixed(2)} MB',
+                                            style: TextStyle(
+                                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () => _removeFile(index),
+                                      icon: Icon(
+                                        Icons.close,
+                                        size: 18,
+                                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                      ),
+                                      padding: const EdgeInsets.all(4),
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    const SizedBox(height: 20),
+
+                    // Action buttons
+                    if (_selectedFiles.isEmpty)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton.icon(
+                          onPressed: _pickFiles,
+                          icon: const Icon(Icons.folder_open),
+                          label: const Text(
+                            'Select Files',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      )
+                    else
+                      Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: ElevatedButton.icon(
+                              onPressed: _processFiles,
+                              icon: const Icon(Icons.analytics),
+                              label: Text(
+                                'Analyze ${_selectedFiles.length > 1 ? 'Documents' : 'Document'}',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: OutlinedButton.icon(
+                              onPressed: _pickFiles,
+                              icon: const Icon(Icons.add),
+                              label: const Text(
+                                'Add More Files',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(
+                                  color: Theme.of(context).primaryColor,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
                     const SizedBox(height: 20),
                   ],
-
-                  const Spacer(),
-
-                  // Action buttons
-                  if (_selectedFile == null)
-                    ElevatedButton.icon(
-                      onPressed: _pickFile,
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text('Select File'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
-                      ),
-                    )
-                  else
-                    Column(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _processFile,
-                          icon: const Icon(Icons.analytics),
-                          label: const Text('Analyze Document'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.all(16),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        OutlinedButton.icon(
-                          onPressed: _pickFile,
-                          icon: const Icon(Icons.folder_open),
-                          label: const Text('Select Different File'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.all(16),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+                ),
               ),
             ),
     );
   }
 
   Widget _buildFileTypeChip(String type) {
-    return Chip(
-      label: Text(
-        type,
-        style: const TextStyle(fontSize: 12),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2563EB).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
       ),
-      backgroundColor: Colors.blue[50],
-      labelStyle: TextStyle(color: Colors.blue[700]),
+      child: Text(
+        type,
+        style: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF2563EB),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

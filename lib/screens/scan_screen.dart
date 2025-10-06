@@ -6,10 +6,12 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:provider/provider.dart';
 import '../services/ocr_service.dart';
 import '../services/ai_analysis_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
+import '../providers/theme_provider.dart';
 import 'analysis_result_screen.dart';
 
 class ScanScreen extends StatefulWidget {
@@ -24,7 +26,10 @@ class _ScanScreenState extends State<ScanScreen> {
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
   bool _isProcessing = false;
+  bool _isFlashOn = false;
   final ImagePicker _imagePicker = ImagePicker();
+  List<File> _capturedPages = [];
+  List<String> _extractedTexts = [];
 
   @override
   void initState() {
@@ -212,6 +217,25 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_isCameraInitialized) return;
+
+    try {
+      setState(() {
+        _isFlashOn = !_isFlashOn;
+      });
+
+      await _cameraController!.setFlashMode(
+        _isFlashOn ? FlashMode.torch : FlashMode.off,
+      );
+    } catch (e) {
+      print('Error toggling flash: $e');
+      setState(() {
+        _isFlashOn = !_isFlashOn; // Revert on error
+      });
+    }
+  }
+
   @override
   void dispose() {
     _cameraController?.dispose();
@@ -220,25 +244,52 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
+    // A4 aspect ratio is 1:1.414 (width:height)
+    // Make the frame responsive but maintain A4 proportions
+    final frameWidth = screenWidth * 0.85;
+    final frameHeight = frameWidth * 1.414;
+
+    // Ensure frame fits on screen with some padding
+    final maxFrameHeight = screenHeight * 0.6;
+    final adjustedFrameHeight = frameHeight > maxFrameHeight ? maxFrameHeight : frameHeight;
+    final adjustedFrameWidth = adjustedFrameHeight / 1.414;
+
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
       appBar: AppBar(
-        title: const Text('Scan Document'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Scan Document',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+        elevation: 0,
       ),
       body: _isProcessing
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SpinKitCircle(
-                    color: Colors.blue,
+                    color: Theme.of(context).primaryColor,
                     size: 50.0,
                   ),
-                  SizedBox(height: 20),
-                  Text(
+                  const SizedBox(height: 20),
+                  const Text(
                     'Processing document...',
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(fontSize: 16, color: Colors.black87),
                   ),
                 ],
               ),
@@ -249,86 +300,130 @@ class _ScanScreenState extends State<ScanScreen> {
                   child: _isCameraInitialized
                       ? Stack(
                           children: [
-                            CameraPreview(_cameraController!),
-                            Positioned(
-                              top: 20,
-                              left: 20,
-                              right: 20,
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'Position the document within the frame and tap capture',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
-                                  textAlign: TextAlign.center,
+                            // Camera preview
+                            Positioned.fill(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(0),
+                                child: CameraPreview(_cameraController!),
+                              ),
+                            ),
+
+                            // Dark overlay outside the frame
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: DocumentFramePainter(
+                                  frameWidth: adjustedFrameWidth,
+                                  frameHeight: adjustedFrameHeight,
                                 ),
                               ),
                             ),
-                            // Overlay frame for document positioning
-                            Center(
-                              child: Container(
-                                width: MediaQuery.of(context).size.width * 0.8,
-                                height: MediaQuery.of(context).size.height * 0.4,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
+
+                            // Instructions at top - positioned higher to avoid overlap
+                            Positioned(
+                              top: 20,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.7),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  borderRadius: BorderRadius.circular(8),
+                                  child: const Text(
+                                    'Position document within frame',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Corner markers for better visual guidance
+                            Center(
+                              child: SizedBox(
+                                width: adjustedFrameWidth,
+                                height: adjustedFrameHeight,
+                                child: Stack(
+                                  children: [
+                                    // Top-left corner
+                                    Positioned(
+                                      top: 0,
+                                      left: 0,
+                                      child: _buildCornerMarker(true, true),
+                                    ),
+                                    // Top-right corner
+                                    Positioned(
+                                      top: 0,
+                                      right: 0,
+                                      child: _buildCornerMarker(true, false),
+                                    ),
+                                    // Bottom-left corner
+                                    Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      child: _buildCornerMarker(false, true),
+                                    ),
+                                    // Bottom-right corner
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: _buildCornerMarker(false, false),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ],
                         )
-                      : const Center(
+                      : Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.camera_alt,
-                                size: 100,
-                                color: Colors.grey,
+                                size: 80,
+                                color: Colors.grey[400],
                               ),
-                              SizedBox(height: 20),
-                              Text(
+                              const SizedBox(height: 20),
+                              const Text(
                                 'Initializing camera...',
-                                style: TextStyle(fontSize: 18),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
                               ),
                             ],
                           ),
                         ),
                 ),
+
+                // Bottom controls
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.1,
+                    vertical: 20,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      FloatingActionButton(
+                      _buildControlButton(
+                        icon: Icons.photo_library,
+                        label: 'Gallery',
                         onPressed: _pickFromGallery,
-                        backgroundColor: Colors.grey[700],
-                        child: const Icon(Icons.photo_library),
                       ),
-                      FloatingActionButton.extended(
+                      _buildCaptureButton(
                         onPressed: _isCameraInitialized ? _capturePhoto : null,
-                        backgroundColor: Theme.of(context).primaryColor,
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Capture'),
                       ),
-                      FloatingActionButton(
-                        onPressed: () {
-                          // Switch camera (front/back)
-                          if (_cameras != null && _cameras!.length > 1) {
-                            // Implement camera switching logic
-                          }
-                        },
-                        backgroundColor: Colors.grey[700],
-                        child: const Icon(Icons.flip_camera_ios),
+                      _buildControlButton(
+                        icon: _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                        label: 'Flash',
+                        onPressed: _toggleFlash,
                       ),
                     ],
                   ),
@@ -337,4 +432,157 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
     );
   }
+
+  Widget _buildCornerMarker(bool isTop, bool isLeft) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        border: Border(
+          top: isTop
+              ? const BorderSide(color: Color(0xFF2563EB), width: 4)
+              : BorderSide.none,
+          left: isLeft
+              ? const BorderSide(color: Color(0xFF2563EB), width: 4)
+              : BorderSide.none,
+          bottom: !isTop
+              ? const BorderSide(color: Color(0xFF2563EB), width: 4)
+              : BorderSide.none,
+          right: !isLeft
+              ? const BorderSide(color: Color(0xFF2563EB), width: 4)
+              : BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: IconButton(
+            onPressed: onPressed,
+            icon: Icon(icon, size: 24),
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[700],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCaptureButton({required VoidCallback? onPressed}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 70,
+          height: 70,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2563EB),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IconButton(
+            onPressed: onPressed,
+            icon: const Icon(Icons.camera_alt, size: 32),
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Capture',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Custom painter for the document frame overlay
+class DocumentFramePainter extends CustomPainter {
+  final double frameWidth;
+  final double frameHeight;
+
+  DocumentFramePainter({
+    required this.frameWidth,
+    required this.frameHeight,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withOpacity(0.5)
+      ..style = PaintingStyle.fill;
+
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
+    final frameLeft = centerX - (frameWidth / 2);
+    final frameTop = centerY - (frameHeight / 2);
+
+    // Draw the dark overlay with a transparent rectangle for the frame
+    final path = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(frameLeft, frameTop, frameWidth, frameHeight),
+          const Radius.circular(12),
+        ),
+      )
+      ..fillType = PathFillType.evenOdd;
+
+    canvas.drawPath(path, paint);
+
+    // Draw frame border
+    final borderPaint = Paint()
+      ..color = const Color(0xFF2563EB).withOpacity(0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(frameLeft, frameTop, frameWidth, frameHeight),
+        const Radius.circular(12),
+      ),
+      borderPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

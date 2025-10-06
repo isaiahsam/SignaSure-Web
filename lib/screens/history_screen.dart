@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
+import '../providers/theme_provider.dart';
 import 'analysis_result_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -174,223 +175,424 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Document History'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            onPressed: _showFilterDialog,
-            icon: const Icon(Icons.filter_list),
-          ),
-          IconButton(
-            onPressed: _loadDocuments,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search documents...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                filled: true,
-                fillColor: Colors.grey[100],
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
-          ),
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth * 0.05;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
-          // Filter indicator
-          if (_selectedFilter != null)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 20),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Chip(
-                    label: Text('Filter: ${_getDocumentTypeName(_selectedFilter!)}'),
-                    deleteIcon: const Icon(Icons.close),
-                    onDeleted: () {
-                      setState(() {
-                        _selectedFilter = null;
-                      });
+                  Text(
+                    'SignaSure',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pop(context);
                     },
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    iconSize: 28,
                   ),
                 ],
               ),
             ),
 
-          // Documents list
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredDocuments.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.history,
-                              size: 80,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              _documents.isEmpty
-                                  ? 'No documents scanned yet'
-                                  : 'No documents match your search',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              _documents.isEmpty
-                                  ? 'Start by scanning or uploading a document'
-                                  : 'Try adjusting your search or filter',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadDocuments,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _filteredDocuments.length,
-                          itemBuilder: (context, index) {
-                            final document = _filteredDocuments[index];
-                            final riskScore = document.analysis?.riskScore ?? 0.0;
+            // History content container
+            Expanded(
+              child: Container(
+                margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [const Color(0xFF252525), const Color(0xFF2A2A2A)]
+                        : [Colors.white, Colors.grey[50]!],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      'History',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : Colors.black,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
 
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.all(16),
-                                leading: CircleAvatar(
-                                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                                  child: Icon(
-                                    _getDocumentTypeIcon(document.type),
-                                    color: Theme.of(context).primaryColor,
-                                  ),
-                                ),
-                                title: Text(
-                                  document.fileName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.calendar_today,
-                                          size: 14,
+                    const SizedBox(height: 16),
+
+                    // Search bar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search',
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.grey[500] : Colors.grey[600],
+                            fontWeight: FontWeight.w600,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.menu,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          suffixIcon: Icon(
+                            Icons.search,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Documents list
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _filteredDocuments.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.history,
+                                        size: 60,
+                                        color: Colors.grey[400],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        _documents.isEmpty
+                                            ? 'No documents yet'
+                                            : 'No matching documents',
+                                        style: TextStyle(
+                                          fontSize: 16,
                                           color: Colors.grey[600],
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          DateFormat('MMM d, y').format(document.scanDate),
-                                          style: TextStyle(color: Colors.grey[600]),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: _getRiskColor(riskScore).withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            _getRiskText(riskScore),
-                                            style: TextStyle(
-                                              color: _getRiskColor(riskScore),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _getDocumentTypeName(document.type),
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                )
+                              : RefreshIndicator(
+                                  onRefresh: _loadDocuments,
+                                  child: ListView.builder(
+                                    padding: EdgeInsets.zero,
+                                    itemCount: _filteredDocuments.length,
+                                    itemBuilder: (context, index) {
+                                      final document = _filteredDocuments[index];
+                                      return _buildDocumentItem(context, document);
+                                    },
+                                  ),
                                 ),
-                                trailing: PopupMenuButton(
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'view',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.visibility),
-                                          SizedBox(width: 8),
-                                          Text('View Analysis'),
-                                        ],
-                                      ),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.delete, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Delete', style: TextStyle(color: Colors.red)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  onSelected: (value) {
-                                    if (value == 'view') {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => AnalysisResultScreen(document: document),
-                                        ),
-                                      );
-                                    } else if (value == 'delete') {
-                                      _deleteDocument(document);
-                                    }
-                                  },
-                                ),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => AnalysisResultScreen(document: document),
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Bottom navigation hint
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentItem(BuildContext context, Document document) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AnalysisResultScreen(document: document),
+          ),
+        );
+        _loadDocuments(); // Reload after returning
+      },
+      onLongPress: () {
+        _showTitleEditDialog(context, document);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // Document thumbnail
+            Container(
+              width: 65,
+              height: 85,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [const Color(0xFF2A2A2A), const Color(0xFF252525)]
+                      : [Colors.white, Colors.grey[100]!],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.description,
+                    size: 28,
+                    color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text(
+                      'DOC',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            // Document details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          document.displayTitle.length > 20
+                              ? '${document.displayTitle.substring(0, 20)}...'
+                              : document.displayTitle,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : Colors.black,
+                            letterSpacing: -0.2,
+                          ),
                         ),
                       ),
+                      if (document.customTitle != null)
+                        Icon(
+                          Icons.edit,
+                          size: 14,
+                          color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    document.analysis?.summary.substring(
+                          0,
+                          document.analysis!.summary.length > 80
+                              ? 80
+                              : document.analysis!.summary.length,
+                        ) ??
+                        'No summary available',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      height: 1.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            // Actions with colored backgrounds
+            Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFA500).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      document.isFavorite ? Icons.star : Icons.star_border,
+                      size: 22,
+                      color: const Color(0xFFFFA500),
+                    ),
+                    onPressed: () async {
+                      await DatabaseService.toggleFavorite(document.id, !document.isFavorite);
+                      _loadDocuments();
+                    },
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 22,
+                      color: Colors.red,
+                    ),
+                    onPressed: () => _deleteDocument(document),
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTitleEditDialog(BuildContext context, Document document) async {
+    final controller = TextEditingController(text: document.customTitle ?? document.fileName);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF252525) : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          'Edit Title',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.black,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await DatabaseService.updateTitle(
+                document.id,
+                controller.text.isEmpty ? null : controller.text,
+              );
+              Navigator.pop(context);
+              _loadDocuments();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Save',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

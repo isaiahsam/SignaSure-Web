@@ -109,6 +109,23 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         title: const Text('Analysis Results'),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              // Navigate back to home, clearing the stack
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+            icon: const Icon(Icons.check_circle, color: Colors.white),
+            label: const Text(
+              'Done',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
