@@ -3,7 +3,8 @@
     "allow": [
       "Read(//c/Users/Isaiah/Downloads/**)",
       "Bash(dart analyze:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(copy:*)"
     ],
     "deny": [],
     "ask": []

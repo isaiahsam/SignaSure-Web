@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/auth_service.dart';
+import 'landing_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -154,6 +157,32 @@ class SettingsScreen extends StatelessWidget {
                       },
                     ),
                   ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Sign Out Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _handleSignOut(context),
+                    icon: const Icon(Icons.logout),
+                    label: const Text(
+                      'Sign Out',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 40),
@@ -379,6 +408,51 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final authService = AuthService();
+        await authService.signOut();
+
+        if (context.mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LandingScreen()),
+            (route) => false,
+          );
+        }
+
+        Fluttertoast.showToast(
+          msg: "Signed out successfully",
+          toastLength: Toast.LENGTH_SHORT,
+        );
+      } catch (e) {
+        Fluttertoast.showToast(
+          msg: "Error signing out: $e",
+          toastLength: Toast.LENGTH_LONG,
+        );
+      }
+    }
   }
 
   Future<void> _showEditDialog(

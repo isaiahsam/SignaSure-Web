@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/main_screen.dart';
+import 'screens/landing_screen.dart';
 import 'services/database_service.dart';
+import 'services/auth_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print('Firebase initialization error: $e');
+  }
+
   await DatabaseService.database;
+
   runApp(
     MultiProvider(
       providers: [
@@ -25,13 +37,38 @@ class SignaSureApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final authService = AuthService();
 
     return MaterialApp(
       title: 'SignaSure',
       theme: themeProvider.lightTheme,
       darkTheme: themeProvider.darkTheme,
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: const MainScreen(),
+      home: StreamBuilder(
+        stream: authService.authStateChanges,
+        builder: (context, snapshot) {
+          // Show loading while checking auth state
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          // Show landing page if not authenticated
+          if (snapshot.data == null) {
+            return const LandingScreen();
+          }
+
+          // Show main screen if authenticated
+          final user = snapshot.data!;
+          final userProvider = Provider.of<UserProvider>(context, listen: false);
+          userProvider.updateUserName(user.displayName ?? 'User');
+
+          return const MainScreen();
+        },
+      ),
       debugShowCheckedModeBanner: false,
     );
   }

@@ -100,38 +100,42 @@ class _ScanScreenState extends State<ScanScreen> {
     }
 
     try {
+      final XFile photo = await _cameraController!.takePicture();
+      final capturedFile = File(photo.path);
+
       setState(() {
-        _isProcessing = true;
+        _capturedPages.add(capturedFile);
       });
 
-      final XFile photo = await _cameraController!.takePicture();
-      await _processImage(File(photo.path));
+      Fluttertoast.showToast(
+        msg: "Page ${_capturedPages.length} captured!",
+        toastLength: Toast.LENGTH_SHORT,
+      );
     } catch (e) {
       print('Error capturing photo: $e');
       Fluttertoast.showToast(
         msg: "Error capturing photo: $e",
         toastLength: Toast.LENGTH_SHORT,
       );
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
     }
   }
 
   Future<void> _pickFromGallery() async {
     try {
-      setState(() {
-        _isProcessing = true;
-      });
-
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 100,
       );
 
       if (image != null) {
-        await _processImage(File(image.path));
+        setState(() {
+          _capturedPages.add(File(image.path));
+        });
+
+        Fluttertoast.showToast(
+          msg: "Page ${_capturedPages.length} added!",
+          toastLength: Toast.LENGTH_SHORT,
+        );
       }
     } catch (e) {
       print('Error picking image from gallery: $e');
@@ -139,31 +143,57 @@ class _ScanScreenState extends State<ScanScreen> {
         msg: "Error picking image: $e",
         toastLength: Toast.LENGTH_SHORT,
       );
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
     }
   }
 
-  Future<void> _processImage(File imageFile) async {
-    try {
-      // Extract text from image using OCR
-      final extractedText = await OCRService.extractTextFromImage(imageFile.path);
+  Future<void> _processAllPages() async {
+    if (_capturedPages.isEmpty) {
+      Fluttertoast.showToast(
+        msg: "Please capture at least one page",
+        toastLength: Toast.LENGTH_SHORT,
+      );
+      return;
+    }
 
-      if (extractedText == null || extractedText.trim().isEmpty) {
+    try {
+      setState(() {
+        _isProcessing = true;
+      });
+
+      String combinedText = '';
+
+      // Extract text from all captured pages
+      for (int i = 0; i < _capturedPages.length; i++) {
+        final extractedText = await OCRService.extractTextFromImage(_capturedPages[i].path);
+
+        if (extractedText != null && extractedText.trim().isNotEmpty) {
+          if (_capturedPages.length > 1) {
+            combinedText += '\n\n--- Page ${i + 1} ---\n\n$extractedText';
+          } else {
+            combinedText = extractedText;
+          }
+          _extractedTexts.add(extractedText);
+        }
+      }
+
+      if (combinedText.trim().isEmpty) {
         Fluttertoast.showToast(
-          msg: "No text found in the image. Please try again with a clearer image.",
+          msg: "No text found in the images. Please try again with clearer images.",
           toastLength: Toast.LENGTH_LONG,
         );
+        setState(() {
+          _isProcessing = false;
+        });
         return;
       }
 
-      // Save image to app directory
+      // Save images to app directory
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'document_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName = _capturedPages.length > 1
+          ? 'document_${DateTime.now().millisecondsSinceEpoch}_${_capturedPages.length}_pages.jpg'
+          : 'document_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final savedFile = File('${directory.path}/$fileName');
-      await imageFile.copy(savedFile.path);
+      await _capturedPages[0].copy(savedFile.path);
 
       // Create document record
       final document = Document(
@@ -172,7 +202,7 @@ class _ScanScreenState extends State<ScanScreen> {
         fileName: fileName,
         scanDate: DateTime.now(),
         type: DocumentType.other,
-        extractedText: extractedText,
+        extractedText: combinedText,
       );
 
       // Save to database
@@ -196,7 +226,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
       // Navigate to analysis result screen
       if (mounted) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => AnalysisResultScreen(document: updatedDocument),
@@ -209,13 +239,33 @@ class _ScanScreenState extends State<ScanScreen> {
         toastLength: Toast.LENGTH_SHORT,
       );
     } catch (e) {
-      print('Error processing image: $e');
+      print('Error processing pages: $e');
       Fluttertoast.showToast(
         msg: "Error processing document: $e",
         toastLength: Toast.LENGTH_LONG,
       );
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
+
+  void _removeLastPage() {
+    if (_capturedPages.isNotEmpty) {
+      setState(() {
+        _capturedPages.removeLast();
+        if (_extractedTexts.isNotEmpty) {
+          _extractedTexts.removeLast();
+        }
+      });
+
+      Fluttertoast.showToast(
+        msg: "Last page removed",
+        toastLength: Toast.LENGTH_SHORT,
+      );
+    }
+  }
+
 
   Future<void> _toggleFlash() async {
     if (_cameraController == null || !_isCameraInitialized) return;
@@ -330,9 +380,11 @@ class _ScanScreenState extends State<ScanScreen> {
                                     color: Colors.black.withOpacity(0.7),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: const Text(
-                                    'Position document within frame',
-                                    style: TextStyle(
+                                  child: Text(
+                                    _capturedPages.isEmpty
+                                        ? 'Position document within frame'
+                                        : '${_capturedPages.length} page${_capturedPages.length > 1 ? 's' : ''} captured',
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
@@ -406,27 +458,46 @@ class _ScanScreenState extends State<ScanScreen> {
                 Container(
                   color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
                   padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.1,
+                    horizontal: screenWidth * 0.05,
                     vertical: 20,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildControlButton(
-                        icon: Icons.photo_library,
-                        label: 'Gallery',
-                        onPressed: _pickFromGallery,
-                      ),
-                      _buildCaptureButton(
-                        onPressed: _isCameraInitialized ? _capturePhoto : null,
-                      ),
-                      _buildControlButton(
-                        icon: _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                        label: 'Flash',
-                        onPressed: _toggleFlash,
-                      ),
-                    ],
-                  ),
+                  child: _capturedPages.isEmpty
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildControlButton(
+                              icon: Icons.photo_library,
+                              label: 'Gallery',
+                              onPressed: _pickFromGallery,
+                            ),
+                            _buildCaptureButton(
+                              onPressed: _isCameraInitialized ? _capturePhoto : null,
+                            ),
+                            _buildControlButton(
+                              icon: _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              label: 'Flash',
+                              onPressed: _toggleFlash,
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildControlButton(
+                              icon: Icons.delete_outline,
+                              label: 'Remove',
+                              onPressed: _removeLastPage,
+                            ),
+                            _buildCaptureButton(
+                              onPressed: _isCameraInitialized ? _capturePhoto : null,
+                            ),
+                            _buildControlButton(
+                              icon: Icons.check,
+                              label: 'Done',
+                              onPressed: _processAllPages,
+                            ),
+                          ],
+                        ),
                 ),
               ],
             ),

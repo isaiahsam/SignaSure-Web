@@ -194,11 +194,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               icon: Icons.camera_alt_outlined,
                               title: 'Scan',
                               subtitle: 'Capture using\nCamera',
-                              onTap: () {
-                                Navigator.push(
+                              onTap: () async {
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const ScanScreen()),
                                 );
+                                _loadRecentDocuments();
                               },
                             ),
                             const SizedBox(width: 16),
@@ -208,11 +209,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               icon: Icons.upload_file_outlined,
                               title: 'Upload',
                               subtitle: 'Documents, ID\nCards...',
-                              onTap: () {
-                                Navigator.push(
+                              onTap: () async {
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const UploadScreen()),
                                 );
+                                _loadRecentDocuments();
                               },
                             ),
                           ],
@@ -598,8 +600,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
                   ),
                   onPressed: () async {
-                    await DatabaseService.deleteDocument(document.id);
-                    _loadRecentDocuments();
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Document'),
+                        content: const Text('Are you sure you want to delete this document? This action cannot be undone.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      await DatabaseService.deleteDocument(document.id);
+                      _loadRecentDocuments();
+                    }
                   },
                   iconSize: 20,
                   padding: const EdgeInsets.all(6),
