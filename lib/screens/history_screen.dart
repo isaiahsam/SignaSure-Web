@@ -59,6 +59,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       }).toList();
     }
 
+    // Sort: favorites first, then by date
+    filtered.sort((a, b) {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return b.scanDate.compareTo(a.scanDate);
+    });
+
     return filtered;
   }
 
@@ -478,44 +485,32 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             ),
 
-            // Actions with colored backgrounds
+            // Actions without colored backgrounds
             Column(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFA500).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
+                IconButton(
+                  icon: Icon(
+                    document.isFavorite ? Icons.star : Icons.star_border,
+                    size: 22,
+                    color: const Color(0xFFFFA500),
                   ),
-                  child: IconButton(
-                    icon: Icon(
-                      document.isFavorite ? Icons.star : Icons.star_border,
-                      size: 22,
-                      color: const Color(0xFFFFA500),
-                    ),
-                    onPressed: () async {
-                      await DatabaseService.toggleFavorite(document.id, !document.isFavorite);
-                      _loadDocuments();
-                    },
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
+                  onPressed: () async {
+                    await DatabaseService.toggleFavorite(document.id, !document.isFavorite);
+                    _loadDocuments();
+                  },
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 22,
+                    color: Colors.red,
                   ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      size: 22,
-                      color: Colors.red,
-                    ),
-                    onPressed: () => _deleteDocument(document),
-                    padding: const EdgeInsets.all(8),
-                    constraints: const BoxConstraints(),
-                  ),
+                  onPressed: () => _deleteDocument(document),
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),

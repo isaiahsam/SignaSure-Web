@@ -12,7 +12,7 @@ import '../services/ai_analysis_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
 import '../providers/theme_provider.dart';
-import 'analysis_result_screen.dart';
+import 'image_review_screen.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -27,6 +27,7 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _isCameraInitialized = false;
   bool _isProcessing = false;
   bool _isFlashOn = false;
+  bool _showCaptureFlash = false;
   final ImagePicker _imagePicker = ImagePicker();
   List<File> _capturedPages = [];
   List<String> _extractedTexts = [];
@@ -100,6 +101,11 @@ class _ScanScreenState extends State<ScanScreen> {
     }
 
     try {
+      // Show visual feedback
+      setState(() {
+        _showCaptureFlash = true;
+      });
+
       final XFile photo = await _cameraController!.takePicture();
       final capturedFile = File(photo.path);
 
@@ -107,12 +113,23 @@ class _ScanScreenState extends State<ScanScreen> {
         _capturedPages.add(capturedFile);
       });
 
+      // Hide flash after brief delay
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (mounted) {
+        setState(() {
+          _showCaptureFlash = false;
+        });
+      }
+
       Fluttertoast.showToast(
         msg: "Page ${_capturedPages.length} captured!",
         toastLength: Toast.LENGTH_SHORT,
       );
     } catch (e) {
       print('Error capturing photo: $e');
+      setState(() {
+        _showCaptureFlash = false;
+      });
       Fluttertoast.showToast(
         msg: "Error capturing photo: $e",
         toastLength: Toast.LENGTH_SHORT,
@@ -155,99 +172,13 @@ class _ScanScreenState extends State<ScanScreen> {
       return;
     }
 
-    try {
-      setState(() {
-        _isProcessing = true;
-      });
-
-      String combinedText = '';
-
-      // Extract text from all captured pages
-      for (int i = 0; i < _capturedPages.length; i++) {
-        final extractedText = await OCRService.extractTextFromImage(_capturedPages[i].path);
-
-        if (extractedText != null && extractedText.trim().isNotEmpty) {
-          if (_capturedPages.length > 1) {
-            combinedText += '\n\n--- Page ${i + 1} ---\n\n$extractedText';
-          } else {
-            combinedText = extractedText;
-          }
-          _extractedTexts.add(extractedText);
-        }
-      }
-
-      if (combinedText.trim().isEmpty) {
-        Fluttertoast.showToast(
-          msg: "No text found in the images. Please try again with clearer images.",
-          toastLength: Toast.LENGTH_LONG,
-        );
-        setState(() {
-          _isProcessing = false;
-        });
-        return;
-      }
-
-      // Save images to app directory
-      final directory = await getApplicationDocumentsDirectory();
-      final fileName = _capturedPages.length > 1
-          ? 'document_${DateTime.now().millisecondsSinceEpoch}_${_capturedPages.length}_pages.jpg'
-          : 'document_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final savedFile = File('${directory.path}/$fileName');
-      await _capturedPages[0].copy(savedFile.path);
-
-      // Create document record
-      final document = Document(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        filePath: savedFile.path,
-        fileName: fileName,
-        scanDate: DateTime.now(),
-        type: DocumentType.other,
-        extractedText: combinedText,
-      );
-
-      // Save to database
-      await DatabaseService.insertDocument(document);
-
-      // Analyze document with AI (mock for now)
-      final analysis = await AIAnalysisService.getMockAnalysis();
-
-      // Update document with analysis
-      final updatedDocument = Document(
-        id: document.id,
-        filePath: document.filePath,
-        fileName: document.fileName,
-        scanDate: document.scanDate,
-        type: document.type,
-        extractedText: document.extractedText,
-        analysis: analysis,
-      );
-
-      await DatabaseService.updateDocument(updatedDocument);
-
-      // Navigate to analysis result screen
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AnalysisResultScreen(document: updatedDocument),
-          ),
-        );
-      }
-
-      Fluttertoast.showToast(
-        msg: "Document scanned and analyzed successfully!",
-        toastLength: Toast.LENGTH_SHORT,
-      );
-    } catch (e) {
-      print('Error processing pages: $e');
-      Fluttertoast.showToast(
-        msg: "Error processing document: $e",
-        toastLength: Toast.LENGTH_LONG,
-      );
-      setState(() {
-        _isProcessing = false;
-      });
-    }
+    // Navigate to review screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ImageReviewScreen(capturedImages: _capturedPages),
+      ),
+    );
   }
 
   void _removeLastPage() {
@@ -357,6 +288,14 @@ class _ScanScreenState extends State<ScanScreen> {
                                 child: CameraPreview(_cameraController!),
                               ),
                             ),
+
+                            // Capture flash effect
+                            if (_showCaptureFlash)
+                              Positioned.fill(
+                                child: Container(
+                                  color: Colors.white,
+                                ),
+                              ),
 
                             // Dark overlay outside the frame
                             Positioned.fill(

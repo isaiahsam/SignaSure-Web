@@ -4,7 +4,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../services/auth_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_provider.dart';
-import 'main_screen.dart';
+import 'username_prompt_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -96,24 +96,16 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
       final userCredential = await _authService.signInWithGoogle();
 
       if (userCredential != null && userCredential.user != null) {
-        final user = userCredential.user!;
-
-        // Update user provider with user info
-        if (mounted) {
-          final userProvider = Provider.of<UserProvider>(context, listen: false);
-          userProvider.updateUserName(user.displayName ?? 'User');
-        }
-
-        // Navigate to main screen
+        // Navigate to username prompt screen
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const MainScreen()),
+            MaterialPageRoute(builder: (context) => const UsernamePromptScreen()),
           );
         }
 
         Fluttertoast.showToast(
-          msg: "Welcome ${user.displayName}!",
+          msg: "Sign-in successful!",
           toastLength: Toast.LENGTH_SHORT,
         );
       }
