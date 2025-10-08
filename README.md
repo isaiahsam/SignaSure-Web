@@ -1,52 +1,69 @@
 # SignaSure
 
-**Sign Smart, Stay Protected**
+**Sign Smart, Stay Protected** 🔐
 
-SignaSure is an AI-powered document analysis mobile app that helps you check for loopholes and unfavorable terms before signing any document.
+SignaSure is an AI-powered document analysis mobile app that helps you identify loopholes and unfavorable terms before signing any document.
 
-## Features
+[![Flutter](https://img.shields.io/badge/Flutter-3.7.2+-blue.svg)](https://flutter.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-Enabled-orange.svg)](https://firebase.google.com/)
+[![Gemini AI](https://img.shields.io/badge/Gemini%20AI-Free-green.svg)](https://ai.google.dev/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### 🔍 Document Analysis
-- AI-powered analysis to identify potential risks and loopholes
-- Highlights unfavorable terms and clauses
-- Provides recommendations and insights
+## ✨ Features
+
+### 🤖 AI-Powered Analysis
+- **Real Google Gemini AI integration** (completely FREE!)
+- Identifies hidden fees, unfavorable terms, and loopholes
+- Highlights penalty clauses and automatic renewals
+- Risk scoring (0-10 scale)
+- Plain-English explanations of complex legal terms
+- Actionable recommendations
 
 ### 📸 Multi-Page Scanning
-- Scan multiple pages of a document
-- Capture using camera or import from gallery
-- OCR text extraction from images
-- Support for documents with 3+ pages
+- Scan documents using camera with visual feedback
+- **NEW:** Image review page before analysis
+- Capture multiple pages (3+ pages supported)
+- Import from gallery
+- OCR text extraction with Google ML Kit
+- A4 document frame overlay for perfect alignment
 
 ### 📤 Document Upload
-- Upload documents in multiple formats (PDF, JPG, PNG, TXT, DOC, DOCX)
-- Multi-file upload support
+- Support for PDF, JPG, PNG, TXT, DOC, DOCX
+- Multi-file upload
 - Automatic document type detection
+- File size display
 
-### 📚 History & Management
-- View all previously analyzed documents
-- Delete documents with confirmation dialog
-- Edit and manage document titles
-- Favorite important documents
+### 📚 Smart History & Management
+- View all analyzed documents
+- **Pin favorites to top** - star important documents
+- **Edit document names** - long-press to rename
+- Delete with confirmation
+- Search and filter by type
+- Pull-to-refresh
 
-### 🔐 Authentication
+### 🔐 Secure Authentication
 - Google Sign-In integration
-- Secure user authentication via Firebase
-- Beautiful animated landing page
+- **Custom username prompt** on first sign-in
+- Firebase authentication
+- Animated landing page
+- Secure sign-out
 
-### 🎨 Modern UI
+### 🎨 Modern UI/UX
 - Dark and light mode support
 - Smooth animations and transitions
-- Intuitive navigation
-- Material Design principles
+- Material Design 3
+- Responsive layout
+- Beautiful gradients and shadows
 
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Flutter SDK (3.7.2 or higher)
-- Dart SDK (3.7.2 or higher)
-- Firebase project (for authentication)
-- Android Studio / Xcode for mobile development
+- Flutter SDK 3.7.2+
+- Dart SDK 3.7.2+
+- Android Studio / Xcode
+- Google account (for Gemini API)
+- Firebase project (free tier)
 
 ### Installation
 
@@ -61,156 +78,218 @@ SignaSure is an AI-powered document analysis mobile app that helps you check for
    flutter pub get
    ```
 
-3. **Set up Firebase** (Required for authentication)
+3. **Set up Google Gemini AI** (5 minutes, FREE!)
 
-   Follow the detailed instructions in [FIREBASE_SETUP.md](FIREBASE_SETUP.md)
+   See [GEMINI_SETUP.md](GEMINI_SETUP.md) for detailed instructions.
+
+   Quick setup:
+   - Get free API key: https://makersuite.google.com/app/apikey
+   - Add to `.env`: `GEMINI_API_KEY=your_key_here`
+
+4. **Set up Firebase** (Required for authentication)
+
+   See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for instructions.
 
    Quick setup:
    ```bash
-   # Install Firebase CLI
    npm install -g firebase-tools
-
-   # Install FlutterFire CLI
    dart pub global activate flutterfire_cli
-
-   # Configure Firebase
    flutterfire configure
    ```
 
-4. **Run the app**
+5. **Run the app**
    ```bash
    flutter run
    ```
 
-## Project Structure
+## 📖 Documentation
+
+- 🚀 **[Quick Start Guide](GEMINI_SETUP.md)** - Get started in 5 minutes
+- 🔥 **[Firebase Setup](FIREBASE_SETUP.md)** - Authentication configuration
+- ✅ **[Production Checklist](PRODUCTION_CHECKLIST.md)** - Play Store preparation
+- 🔐 **[App Signing](SIGNING_SETUP.md)** - Release build setup
+- 📜 **[Privacy Policy](PRIVACY_POLICY.md)** - User data handling
+- 📋 **[Terms of Service](TERMS_OF_SERVICE.md)** - Legal terms
+
+## 🏗️ Project Structure
 
 ```
 lib/
-├── main.dart                 # App entry point
+├── main.dart                      # App entry point with dotenv
 ├── models/
-│   └── document.dart        # Document data model
+│   └── document.dart             # Document and analysis models
 ├── providers/
-│   ├── theme_provider.dart  # Theme management
-│   └── user_provider.dart   # User data management
+│   ├── theme_provider.dart       # Dark/light mode management
+│   └── user_provider.dart        # User data (username)
 ├── screens/
-│   ├── landing_screen.dart  # Landing page with Google Sign-In
-│   ├── main_screen.dart     # Main app wrapper
-│   ├── home_screen.dart     # Home dashboard
-│   ├── scan_screen.dart     # Multi-page document scanning
-│   ├── upload_screen.dart   # Document upload
-│   ├── history_screen.dart  # Document history
-│   ├── settings_screen.dart # App settings
-│   └── analysis_result_screen.dart  # Analysis results
+│   ├── landing_screen.dart       # Google Sign-In
+│   ├── username_prompt_screen.dart  # NEW: Username input
+│   ├── main_screen.dart          # Bottom navigation
+│   ├── home_screen.dart          # Dashboard with pinned favorites
+│   ├── scan_screen.dart          # Camera scanning with flash effect
+│   ├── image_review_screen.dart  # NEW: Review before analysis
+│   ├── upload_screen.dart        # File upload
+│   ├── history_screen.dart       # Document history with edit/pin
+│   ├── settings_screen.dart      # App settings
+│   └── analysis_result_screen.dart  # AI analysis results
 ├── services/
-│   ├── auth_service.dart       # Authentication logic
-│   ├── database_service.dart   # Local database (SQLite)
-│   ├── ocr_service.dart        # Text extraction
-│   └── ai_analysis_service.dart # AI analysis (mock)
+│   ├── auth_service.dart         # Google authentication
+│   ├── database_service.dart     # SQLite (favorites, custom titles)
+│   ├── ocr_service.dart          # Google ML Kit OCR
+│   └── ai_analysis_service.dart  # Gemini AI integration
 └── assets/
-    └── images/
-        ├── logo_blue.png    # Blue logo for white backgrounds
-        └── logo_white.png   # White logo for blue backgrounds
+    ├── images/                   # App logos
+    └── .env                      # API keys (NOT committed)
 ```
 
-## Technologies Used
+## 🛠️ Technologies
 
-- **Flutter** - Cross-platform mobile framework
-- **Firebase** - Authentication and backend services
-- **Google Sign-In** - OAuth authentication
-- **SQLite** - Local database for document storage
-- **Google ML Kit** - OCR and text recognition
-- **Provider** - State management
+| Technology | Purpose |
+|-----------|---------|
+| **Flutter 3.7.2+** | Cross-platform framework |
+| **Google Gemini AI** | FREE AI document analysis |
+| **Firebase** | Authentication & backend |
+| **Google Sign-In** | OAuth authentication |
+| **SQLite** | Local document storage |
+| **Google ML Kit** | OCR text recognition |
+| **Provider** | State management |
+| **flutter_dotenv** | Environment variables |
 
-## Features in Detail
+## 💰 Cost Analysis
 
-### Multi-Page Scanning
+### Free Forever
+- **Gemini AI**: 1,500 analyses/day (FREE!)
+- **Firebase**: Authentication (FREE tier)
+- **Google ML Kit**: OCR (FREE on-device)
+- **Total**: $0/month for most users
 
-Users can now scan documents with multiple pages:
-1. Capture the first page using camera
-2. App shows "X pages captured" indicator
-3. Continue capturing more pages
-4. Click "Done" when finished
-5. All pages are combined into a single document
+### If You Exceed Free Tier
+- **Gemini Pro**: $0.0006 per document (~$6 for 10,000 docs)
+- Still **50% cheaper than GPT-4**!
 
-### Delete Confirmation
+## 🎯 Key Features in Detail
 
-When deleting documents from the main screen, users are prompted with a confirmation dialog to prevent accidental deletions.
+### AI Analysis Results Include:
+- ⚠️ **Flags**: Hidden fees, unfavorable terms, loopholes
+- 📋 **Important Clauses**: Simplified legal explanations
+- 📊 **Risk Score**: 0-10 rating with color coding
+- 💡 **Recommendations**: Actionable next steps
 
-### History Persistence
+### User Experience Improvements:
+- ✅ Visual feedback when capturing images (white flash)
+- ✅ Review captured images before analyzing
+- ✅ Pin favorite documents to top
+- ✅ Edit document names (long-press)
+- ✅ Custom username instead of Google display name
+- ✅ Clean icon design (no colored boxes)
 
-Documents scanned or uploaded are now automatically saved and appear in the history section immediately after processing.
+## 🔒 Security & Privacy
 
-### Google Authentication
+- ✅ API keys stored in `.env` (not committed)
+- ✅ ProGuard obfuscation enabled
+- ✅ Documents stored locally only
+- ✅ HTTPS encryption for all API calls
+- ✅ Firebase secure authentication
+- ✅ No data sold to third parties
 
-- Beautiful landing page with animated logo
-- One-tap Google Sign-In
-- Secure authentication via Firebase
-- Sign-out option in settings
+**See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for full details.**
 
-## Configuration
+## 🚢 Production Deployment
 
-### Firebase Setup
+Ready to publish on Google Play Store?
 
-Before running the app, you must configure Firebase. See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed instructions.
+1. **Follow [PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)**
+2. **Set up app signing**: [SIGNING_SETUP.md](SIGNING_SETUP.md)
+3. **Get Gemini API key**: [GEMINI_SETUP.md](GEMINI_SETUP.md)
+4. **Build release**: `flutter build appbundle --release`
+5. **Upload to Play Console**
 
-### API Keys
+### Important Changes for Production:
+- [ ] Change `applicationId` from `com.example.signasure`
+- [ ] Add your own app signing keystore
+- [ ] Update privacy policy URL
+- [ ] Add real contact info in legal docs
+- [ ] Get production Firebase config
+- [ ] Test thoroughly in release mode
 
-For production use, you'll need to integrate a real AI analysis service. Currently, the app uses mock analysis data.
-
-## Development
-
-### Running Tests
+## 🧪 Testing
 
 ```bash
+# Run tests
 flutter test
-```
 
-### Building for Production
+# Test release build
+flutter run --release
 
-**Android:**
-```bash
+# Build for Android
 flutter build apk --release
-```
+flutter build appbundle --release
 
-**iOS:**
-```bash
+# Build for iOS
 flutter build ios --release
 ```
 
-## Known Issues
+## 📱 Supported Platforms
 
-- Firebase must be configured before the app can run
-- AI analysis currently uses mock data (integrate real AI service for production)
-- Some warnings from deprecated APIs (will be fixed in future updates)
+- ✅ Android (minSdk 23+)
+- ✅ iOS (coming soon)
+- ⚠️ Web (OCR not supported)
 
-## Future Enhancements
+## 🐛 Known Issues
 
-- [ ] Real AI analysis integration (OpenAI, Google AI, etc.)
-- [ ] Document comparison feature
-- [ ] Export analysis reports as PDF
-- [ ] Cloud sync for documents
-- [ ] Document sharing capabilities
-- [ ] Offline mode support
+- ⚠️ Java 8 warnings (fixed with gradle.properties)
+- ⚠️ Requires good lighting for accurate OCR
+- ⚠️ Very long documents may hit token limits
+
+## 🗺️ Roadmap
+
+- [x] Real AI analysis (Gemini integration)
+- [x] Username customization
+- [x] Image review before analysis
+- [x] Favorite/pin documents
+- [x] Edit document names
+- [ ] Backend server for better API key security
+- [ ] In-app subscriptions (optional)
+- [ ] Document comparison
+- [ ] PDF export of analysis
+- [ ] Cloud sync (optional)
 - [ ] Multiple language support
+- [ ] iOS version
 
-## Contributing
+## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
 
-## Support
+## ⚖️ Legal Disclaimer
 
-For support, email support@signasure.com or open an issue in the repository.
+**SignaSure is NOT a substitute for professional legal advice.**
 
-## Acknowledgments
+The AI analysis is for informational purposes only. Always consult a qualified attorney before signing important documents. See [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) for full disclaimer.
 
-- Flutter team for the amazing framework
-- Firebase for authentication services
-- Google ML Kit for OCR capabilities
+## 📧 Support
+
+- **Issues**: Open a GitHub issue
+- **Email**: [your-email@example.com]
+- **Docs**: Check the `/docs` folder
+
+## 🙏 Acknowledgments
+
+- Google Gemini AI team for the amazing free tier
+- Flutter team for the framework
+- Firebase for authentication
+- Google ML Kit for OCR
+- All open-source contributors
 
 ---
 
-Made with ❤️ by SignaSure Team
+**Made with ❤️ for safer document signing**
+
+⭐ Star this repo if you find it helpful!

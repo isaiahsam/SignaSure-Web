@@ -118,7 +118,21 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
       await DatabaseService.insertDocument(document);
 
       // Analyze document with AI
-      final analysis = await AIAnalysisService.getMockAnalysis();
+      final analysis = await AIAnalysisService.analyzeDocument(
+        combinedText,
+        document.type,
+      );
+
+      if (analysis == null) {
+        Fluttertoast.showToast(
+          msg: "AI analysis failed. Please check your API key and try again.",
+          toastLength: Toast.LENGTH_LONG,
+        );
+        setState(() {
+          _isProcessing = false;
+        });
+        return;
+      }
 
       // Update document with analysis
       final updatedDocument = Document(

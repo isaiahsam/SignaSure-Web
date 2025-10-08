@@ -60,6 +60,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadRecentDocuments() async {
     try {
       final documents = await DatabaseService.getAllDocuments();
+
+      // Sort: favorites first, then by date
+      documents.sort((a, b) {
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        return b.scanDate.compareTo(a.scanDate);
+      });
+
       setState(() {
         _recentDocuments = documents.take(3).toList();
         _isLoading = false;
@@ -583,11 +591,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               children: [
                 IconButton(
                   icon: Icon(
-                    Icons.star_border,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    document.isFavorite ? Icons.star : Icons.star_border,
+                    color: document.isFavorite
+                        ? const Color(0xFFFFA500)
+                        : (isDark ? Colors.grey[400] : Colors.grey[600]),
                   ),
-                  onPressed: () {
-                    // Favorite action
+                  onPressed: () async {
+                    await DatabaseService.toggleFavorite(document.id, !document.isFavorite);
+                    _loadRecentDocuments();
                   },
                   iconSize: 20,
                   padding: const EdgeInsets.all(6),
@@ -597,7 +608,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 IconButton(
                   icon: Icon(
                     Icons.delete_outline,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    color: Colors.red,
                   ),
                   onPressed: () async {
                     final confirmed = await showDialog<bool>(

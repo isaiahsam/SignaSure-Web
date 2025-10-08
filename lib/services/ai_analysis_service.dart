@@ -1,14 +1,20 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/document.dart';
 
 class AIAnalysisService {
-  static const String _baseUrl = 'https://api.openai.com/v1/chat/completions';
-  static const String _apiKey = 'YOUR_OPENAI_API_KEY_HERE'; // Replace with your API key
+  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   static Future<DocumentAnalysis?> analyzeDocument(String extractedText, DocumentType documentType) async {
     try {
-      final response = await _callOpenAI(extractedText, documentType);
+      // Validate API key
+      if (_apiKey.isEmpty || _apiKey == 'your_gemini_api_key_here') {
+        print('Error: Gemini API key not configured');
+        return null;
+      }
+
+      final response = await _callGemini(extractedText, documentType);
       if (response != null) {
         return _parseAnalysisResponse(response);
       }
@@ -19,59 +25,44 @@ class AIAnalysisService {
     }
   }
 
-  static Future<Map<String, dynamic>?> _callOpenAI(String text, DocumentType documentType) async {
+  static Future<Map<String, dynamic>?> _callGemini(String text, DocumentType documentType) async {
     try {
-      final prompt = _buildAnalysisPrompt(text, documentType);
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_apiKey',
-      };
-
-      final body = jsonEncode({
-        'model': 'gpt-4',
-        'messages': [
-          {
-            'role': 'system',
-            'content': 'You are a legal expert AI that analyzes documents for potential issues, loopholes, and unfavorable terms. Always respond in the exact JSON format requested.'
-          },
-          {
-            'role': 'user',
-            'content': prompt
-          }
-        ],
-        'max_tokens': 4000,
-        'temperature': 0.3,
-      });
-
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: headers,
-        body: body,
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: _apiKey,
+        generationConfig: GenerationConfig(
+          temperature: 0.3,
+          maxOutputTokens: 4000,
+          responseMimeType: 'application/json',
+        ),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'];
-        return jsonDecode(content);
+      final prompt = _buildAnalysisPrompt(text, documentType);
+      final content = [Content.text(prompt)];
+      final response = await model.generateContent(content);
+
+      if (response.text != null && response.text!.isNotEmpty) {
+        return jsonDecode(response.text!);
       } else {
-        print('OpenAI API error: ${response.statusCode} - ${response.body}');
+        print('Gemini API returned empty response');
         return null;
       }
     } catch (e) {
-      print('Error calling OpenAI API: $e');
+      print('Error calling Gemini API: $e');
       return null;
     }
   }
 
   static String _buildAnalysisPrompt(String text, DocumentType documentType) {
     return '''
+You are a legal expert AI that analyzes documents for potential issues, loopholes, and unfavorable terms.
+
 Analyze the following ${documentType.toString().split('.').last} document for potential issues, loopholes, and unfavorable terms.
 
 Document text:
 "$text"
 
-Please provide a comprehensive analysis in the following JSON format:
+Provide a comprehensive analysis in the following JSON format (respond with ONLY valid JSON, no additional text):
 
 {
   "flags": [
@@ -110,7 +101,7 @@ Focus on:
 9. Dispute resolution limitations
 10. Data privacy concerns
 
-Provide practical, actionable advice for a non-lawyer.
+Provide practical, actionable advice for a non-lawyer. Return ONLY the JSON object, no markdown formatting or additional text.
 ''';
   }
 
