@@ -5,7 +5,8 @@
       "Bash(dart analyze:*)",
       "Bash(flutter analyze:*)",
       "Bash(copy:*)",
-      "Bash(gradlew:*)"
+      "Bash(gradlew:*)",
+      "Bash(curl \"https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyCTsQcw7mVdiFk2S8C3GqhGscdzyFxfwYg\")"
     ],
     "deny": [],
     "ask": []

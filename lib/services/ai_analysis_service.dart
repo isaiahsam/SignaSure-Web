@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import '../models/document.dart';
 
 class AIAnalysisService {
@@ -8,6 +8,11 @@ class AIAnalysisService {
 
   static Future<DocumentAnalysis?> analyzeDocument(String extractedText, DocumentType documentType) async {
     try {
+      // Debug: Print API key status
+      print('API Key loaded: ${_apiKey.isNotEmpty}');
+      print('API Key length: ${_apiKey.length}');
+      print('API Key first 10 chars: ${_apiKey.length >= 10 ? _apiKey.substring(0, 10) : _apiKey}');
+
       // Validate API key
       if (_apiKey.isEmpty || _apiKey == 'your_gemini_api_key_here') {
         print('Error: Gemini API key not configured');
@@ -27,24 +32,77 @@ class AIAnalysisService {
 
   static Future<Map<String, dynamic>?> _callGemini(String text, DocumentType documentType) async {
     try {
-      final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: _apiKey,
-        generationConfig: GenerationConfig(
-          temperature: 0.3,
-          maxOutputTokens: 4000,
-          responseMimeType: 'application/json',
-        ),
+      final prompt = _buildAnalysisPrompt(text, documentType);
+
+      // Use REST API v1beta with gemini-2.5-flash
+      final url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_apiKey'
       );
 
-      final prompt = _buildAnalysisPrompt(text, documentType);
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
+      final requestBody = {
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt}
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.3,
+          'maxOutputTokens': 4000,
+          'responseMimeType': 'application/json',
+        }
+      };
 
-      if (response.text != null && response.text!.isNotEmpty) {
-        return jsonDecode(response.text!);
-      } else {
+      print('Calling Gemini API...');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(requestBody),
+      );
+
+      print('API Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        print('API Response received');
+
+        // Extract text from response
+        final candidates = responseData['candidates'] as List?;
+        if (candidates != null && candidates.isNotEmpty) {
+          final content = candidates[0]['content'];
+          final parts = content['parts'] as List;
+          if (parts.isNotEmpty) {
+            String textResponse = parts[0]['text'] as String;
+
+            // Remove markdown code blocks if present
+            textResponse = textResponse.trim();
+            if (textResponse.startsWith('```json')) {
+              textResponse = textResponse.substring(7);
+            } else if (textResponse.startsWith('```')) {
+              textResponse = textResponse.substring(3);
+            }
+            if (textResponse.endsWith('```')) {
+              textResponse = textResponse.substring(0, textResponse.length - 3);
+            }
+            textResponse = textResponse.trim();
+
+            print('Attempting to parse JSON response...');
+            try {
+              return jsonDecode(textResponse);
+            } catch (e) {
+              print('JSON parsing error: $e');
+              print('Raw response preview: ${textResponse.substring(0, textResponse.length > 500 ? 500 : textResponse.length)}');
+              return null;
+            }
+          }
+        }
+
         print('Gemini API returned empty response');
+        return null;
+      } else {
+        print('Gemini API error: ${response.statusCode}');
+        print('Error body: ${response.body}');
         return null;
       }
     } catch (e) {
@@ -62,7 +120,9 @@ Analyze the following ${documentType.toString().split('.').last} document for po
 Document text:
 "$text"
 
-Provide a comprehensive analysis in the following JSON format (respond with ONLY valid JSON, no additional text):
+CRITICAL: Respond with ONLY valid JSON. Do NOT use markdown code blocks. Do NOT include any text before or after the JSON. Ensure all strings are properly escaped (use \\" for quotes inside strings).
+
+Provide a comprehensive analysis in the following JSON format:
 
 {
   "flags": [
