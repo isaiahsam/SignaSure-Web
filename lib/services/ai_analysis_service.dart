@@ -51,6 +51,45 @@ class AIAnalysisService {
           'temperature': 0.3,
           'maxOutputTokens': 4000,
           'responseMimeType': 'application/json',
+          'responseSchema': {
+            'type': 'object',
+            'properties': {
+              'flags': {
+                'type': 'array',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'type': {'type': 'string'},
+                    'title': {'type': 'string'},
+                    'description': {'type': 'string'},
+                    'severity': {'type': 'string'},
+                    'highlightedText': {'type': 'string'}
+                  },
+                  'required': ['type', 'title', 'description', 'severity', 'highlightedText']
+                }
+              },
+              'importantClauses': {
+                'type': 'array',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'title': {'type': 'string'},
+                    'originalText': {'type': 'string'},
+                    'simplifiedExplanation': {'type': 'string'},
+                    'importance': {'type': 'string'}
+                  },
+                  'required': ['title', 'originalText', 'simplifiedExplanation', 'importance']
+                }
+              },
+              'riskScore': {'type': 'number'},
+              'summary': {'type': 'string'},
+              'recommendations': {
+                'type': 'array',
+                'items': {'type': 'string'}
+              }
+            },
+            'required': ['flags', 'importantClauses', 'riskScore', 'summary', 'recommendations']
+          }
         }
       };
 
@@ -120,16 +159,21 @@ Analyze the following ${documentType.toString().split('.').last} document for po
 Document text:
 "$text"
 
-CRITICAL: Respond with ONLY valid JSON. Do NOT use markdown code blocks. Do NOT include any text before or after the JSON. Ensure all strings are properly escaped (use \\" for quotes inside strings).
+CRITICAL INSTRUCTIONS:
+1. Respond with ONLY valid JSON. Do NOT use markdown code blocks.
+2. ONLY flag ACTUAL problems that exist in the document text - do not flag hypothetical issues or missing clauses unless they are critical
+3. Be balanced and fair - normal standard terms should have LOW risk scores (1-3), moderate concerns MEDIUM (4-6), serious issues HIGH (7-8), only truly dangerous terms CRITICAL (9-10)
+4. Recommendations should ONLY be about what to do with THIS specific document (e.g., "Negotiate the fee in section 3", "Request clarification on the termination clause") - DO NOT give generic advice about conversations or relationships
+5. Only highlight clauses that are actually unusual, unfavorable, or important - standard boilerplate should be ignored
 
-Provide a comprehensive analysis in the following JSON format:
+Provide analysis in this JSON format:
 
 {
   "flags": [
     {
       "type": "hiddenFee|unfavorableTerm|missingClause|loophole|automaticRenewal|penaltyClause|limitedLiability|other",
       "title": "Brief title of the issue",
-      "description": "Detailed explanation of why this is problematic",
+      "description": "Detailed explanation of why this specific term is problematic",
       "severity": "low|medium|high|critical",
       "highlightedText": "The exact text from the document that contains the issue"
     }
@@ -143,25 +187,20 @@ Provide a comprehensive analysis in the following JSON format:
     }
   ],
   "riskScore": 0.0-10.0,
-  "summary": "Overall summary of the document analysis",
+  "summary": "Balanced summary focusing on actual issues found",
   "recommendations": [
-    "Specific actionable recommendations for the user"
+    "Specific actionable steps about THIS document only (e.g., 'Negotiate X', 'Request clarification on Y', 'Consider adding Z clause')"
   ]
 }
 
-Focus on:
-1. Hidden fees or costs
-2. Automatic renewal clauses
-3. Penalty or termination clauses
-4. Limited liability clauses
-5. Unfavorable payment terms
-6. Missing standard protections
-7. Vague or ambiguous language
-8. One-sided terms favoring the other party
-9. Dispute resolution limitations
-10. Data privacy concerns
+Risk Score Guidelines:
+- 0-2: Very safe, standard terms
+- 3-4: Minor concerns, mostly standard
+- 5-6: Moderate concerns worth reviewing
+- 7-8: Significant issues requiring attention
+- 9-10: Severe problems, do not sign without legal review
 
-Provide practical, actionable advice for a non-lawyer. Return ONLY the JSON object, no markdown formatting or additional text.
+ONLY flag real issues. If the document is fairly standard, reflect that with appropriate low-to-medium scores.
 ''';
   }
 
