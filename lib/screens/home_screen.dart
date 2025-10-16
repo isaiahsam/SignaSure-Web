@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'scan_screen.dart';
 import 'upload_screen.dart';
-import 'history_screen.dart';
 import 'settings_screen.dart';
 import '../models/document.dart';
 import '../services/database_service.dart';
@@ -20,15 +19,31 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<Document> _recentDocuments = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  int _currentPage = 0;
+  final int _itemsPerPage = 5;
+  bool _hasMoreDocuments = true;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadRecentDocuments();
     _setupAnimations();
+    _setupScrollListener();
+  }
+
+  void _setupScrollListener() {
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.8) {
+        if (!_isLoadingMore && _hasMoreDocuments) {
+          _loadMoreDocuments();
+        }
+      }
+    });
   }
 
   void _setupAnimations() {
@@ -59,6 +74,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _loadRecentDocuments() async {
     try {
+      setState(() {
+        _isLoading = true;
+        _currentPage = 0;
+      });
+
       final documents = await DatabaseService.getAllDocuments();
 
       // Sort: favorites first, then by date
@@ -69,7 +89,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       });
 
       setState(() {
-        _recentDocuments = documents.take(3).toList();
+        _recentDocuments = documents.take(_itemsPerPage).toList();
+        _hasMoreDocuments = documents.length > _itemsPerPage;
         _isLoading = false;
       });
     } catch (e) {
@@ -79,9 +100,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _loadMoreDocuments() async {
+    if (_isLoadingMore || !_hasMoreDocuments) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final documents = await DatabaseService.getAllDocuments();
+
+      // Sort: favorites first, then by date
+      documents.sort((a, b) {
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        return b.scanDate.compareTo(a.scanDate);
+      });
+
+      final nextPage = _currentPage + 1;
+      final startIndex = nextPage * _itemsPerPage;
+      final endIndex = startIndex + _itemsPerPage;
+
+      if (startIndex < documents.length) {
+        final moreDocuments = documents.skip(startIndex).take(_itemsPerPage).toList();
+
+        setState(() {
+          _recentDocuments.addAll(moreDocuments);
+          _currentPage = nextPage;
+          _hasMoreDocuments = endIndex < documents.length;
+          _isLoadingMore = false;
+        });
+      } else {
+        setState(() {
+          _hasMoreDocuments = false;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingMore = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -97,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           physics: const BouncingScrollPhysics(),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -369,51 +435,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'History',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : Colors.black,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              if (_recentDocuments.isNotEmpty)
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            const HistoryScreen(),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(1, 0),
-                              end: Offset.zero,
-                            ).animate(CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            )),
-                            child: child,
-                          );
-                        },
-                        transitionDuration: const Duration(milliseconds: 400),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    'View All',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
-                    ),
-                  ),
-                ),
-            ],
+          Text(
+            'History',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : Colors.black,
+              letterSpacing: -0.3,
+            ),
           ),
 
           const SizedBox(height: 16),
@@ -441,7 +470,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             )
           else
             Column(
-              children: _recentDocuments.map((doc) => _buildHistoryItem(context, doc)).toList(),
+              children: [
+                ..._recentDocuments.map((doc) => _buildHistoryItem(context, doc)),
+                if (_isLoadingMore)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else if (!_hasMoreDocuments && _recentDocuments.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: Text(
+                        'No more documents',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
         ],
       ),

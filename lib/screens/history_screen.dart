@@ -70,15 +70,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Color _getRiskColor(double riskScore) {
-    if (riskScore <= 3) return Colors.green;
+    if (riskScore <= 2) return Colors.green;
     if (riskScore <= 6) return Colors.orange;
     return Colors.red;
   }
 
   String _getRiskText(double riskScore) {
-    if (riskScore <= 3) return 'Low Risk';
+    // Risk Score Guidelines from AI Analysis Service:
+    // 0-2: Very safe, standard terms
+    // 3-4: Minor concerns, mostly standard
+    // 5-6: Moderate concerns worth reviewing
+    // 7-8: Significant issues requiring attention
+    // 9-10: Severe problems, do not sign without legal review
+    if (riskScore <= 2) return 'Low Risk';
+    if (riskScore <= 4) return 'Low-Medium Risk';
     if (riskScore <= 6) return 'Medium Risk';
-    return 'High Risk';
+    if (riskScore <= 8) return 'High Risk';
+    return 'Critical Risk';
   }
 
   IconData _getDocumentTypeIcon(DocumentType type) {
@@ -376,9 +384,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
         );
         _loadDocuments(); // Reload after returning
       },
-      onLongPress: () {
-        _showTitleEditDialog(context, document);
-      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
@@ -455,12 +460,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ),
                         ),
                       ),
-                      if (document.customTitle != null)
-                        Icon(
+                      IconButton(
+                        icon: Icon(
                           Icons.edit,
-                          size: 14,
+                          size: 18,
                           color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
                         ),
+                        onPressed: () => _showTitleEditDialog(context, document),
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Edit name',
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),

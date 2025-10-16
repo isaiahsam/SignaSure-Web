@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/document.dart';
@@ -28,15 +29,23 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   }
 
   Color _getRiskColor(double riskScore) {
-    if (riskScore <= 3) return Colors.green;
+    if (riskScore <= 2) return Colors.green;
     if (riskScore <= 6) return Colors.orange;
     return Colors.red;
   }
 
   String _getRiskText(double riskScore) {
-    if (riskScore <= 3) return 'Low Risk';
+    // Risk Score Guidelines from AI Analysis Service:
+    // 0-2: Very safe, standard terms
+    // 3-4: Minor concerns, mostly standard
+    // 5-6: Moderate concerns worth reviewing
+    // 7-8: Significant issues requiring attention
+    // 9-10: Severe problems, do not sign without legal review
+    if (riskScore <= 2) return 'Low Risk';
+    if (riskScore <= 4) return 'Low-Medium Risk';
     if (riskScore <= 6) return 'Medium Risk';
-    return 'High Risk';
+    if (riskScore <= 8) return 'High Risk';
+    return 'Critical Risk';
   }
 
   Color _getSeverityColor(FlagSeverity severity) {
@@ -97,6 +106,55 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
       case FlagType.other:
         return 'Other Issue';
     }
+  }
+
+  void _viewDocument() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppBar(
+              backgroundColor: Colors.black,
+              title: const Text('Document Image'),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.file(
+                    File(widget.document.filePath),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error, color: Colors.white, size: 48),
+                            SizedBox(height: 16),
+                            Text(
+                              'Unable to load document image',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -187,6 +245,23 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                   _buildInfoRow('File Name:', widget.document.fileName),
                   _buildInfoRow('Scan Date:', DateFormat('MMM d, y - h:mm a').format(widget.document.scanDate)),
                   _buildInfoRow('Document Type:', widget.document.type.toString().split('.').last.toUpperCase()),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _viewDocument,
+                      icon: const Icon(Icons.image),
+                      label: const Text('View Document'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -298,20 +373,30 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           Row(
             children: [
               Expanded(
-                child: _buildStatCard(
-                  'Flags Found',
-                  '${analysis?.flags.length ?? 0}',
-                  Icons.flag,
-                  Colors.red,
+                child: GestureDetector(
+                  onTap: () {
+                    _tabController.animateTo(1); // Navigate to Flags tab (index 1)
+                  },
+                  child: _buildStatCard(
+                    'Flags Found',
+                    '${analysis?.flags.length ?? 0}',
+                    Icons.flag,
+                    Colors.red,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildStatCard(
-                  'Key Clauses',
-                  '${analysis?.importantClauses.length ?? 0}',
-                  Icons.gavel,
-                  Colors.blue,
+                child: GestureDetector(
+                  onTap: () {
+                    _tabController.animateTo(2); // Navigate to Clauses tab (index 2)
+                  },
+                  child: _buildStatCard(
+                    'Key Clauses',
+                    '${analysis?.importantClauses.length ?? 0}',
+                    Icons.gavel,
+                    Colors.blue,
+                  ),
                 ),
               ),
             ],
