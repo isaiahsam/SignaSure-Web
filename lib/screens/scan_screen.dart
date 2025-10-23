@@ -3,14 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:provider/provider.dart';
-import '../services/ocr_service.dart';
-import '../services/ai_analysis_service.dart';
-import '../services/database_service.dart';
-import '../models/document.dart';
 import '../providers/theme_provider.dart';
 import 'image_review_screen.dart';
 

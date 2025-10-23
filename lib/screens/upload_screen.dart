@@ -10,6 +10,7 @@ import '../services/ai_analysis_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
 import '../providers/theme_provider.dart';
+import '../widgets/shimmer_loading.dart';
 import 'analysis_result_screen.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -122,14 +123,25 @@ class _UploadScreenState extends State<UploadScreen> {
       await DatabaseService.insertDocument(document);
 
       // Analyze document with AI
-      final analysis = await AIAnalysisService.analyzeDocument(
-        combinedText,
-        documentType,
-      );
+      DocumentAnalysis? analysis;
+      try {
+        analysis = await AIAnalysisService.analyzeDocument(
+          combinedText,
+          documentType,
+        );
+      } on RateLimitException catch (e) {
+        Fluttertoast.showToast(
+          msg: e.message,
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.orange,
+        );
+        setState(() => _isProcessing = false);
+        return;
+      }
 
       if (analysis == null) {
         Fluttertoast.showToast(
-          msg: "AI analysis failed. Please check your API key and try again.",
+          msg: "AI analysis failed. Please try again later.",
           toastLength: Toast.LENGTH_LONG,
         );
         setState(() {
@@ -277,18 +289,41 @@ class _UploadScreenState extends State<UploadScreen> {
         elevation: 0,
       ),
       body: _isProcessing
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SpinKitCircle(
+                  const SpinKitCircle(
                     color: Colors.blue,
                     size: 50.0,
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 30),
+                  ShimmerLoading(
+                    isLoading: true,
+                    child: Column(
+                      children: [
+                        ShimmerBox(
+                          width: screenWidth * 0.6,
+                          height: 20,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        const SizedBox(height: 12),
+                        ShimmerBox(
+                          width: screenWidth * 0.4,
+                          height: 16,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'Processing document...',
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
                   ),
                 ],
               ),

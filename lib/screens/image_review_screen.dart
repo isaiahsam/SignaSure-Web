@@ -9,6 +9,7 @@ import '../services/ocr_service.dart';
 import '../services/ai_analysis_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
+import '../widgets/shimmer_loading.dart';
 import 'analysis_result_screen.dart';
 
 class ImageReviewScreen extends StatefulWidget {
@@ -118,14 +119,25 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
       await DatabaseService.insertDocument(document);
 
       // Analyze document with AI
-      final analysis = await AIAnalysisService.analyzeDocument(
-        combinedText,
-        document.type,
-      );
+      DocumentAnalysis? analysis;
+      try {
+        analysis = await AIAnalysisService.analyzeDocument(
+          combinedText,
+          document.type,
+        );
+      } on RateLimitException catch (e) {
+        Fluttertoast.showToast(
+          msg: e.message,
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.orange,
+        );
+        setState(() => _isProcessing = false);
+        return;
+      }
 
       if (analysis == null) {
         Fluttertoast.showToast(
-          msg: "AI analysis failed. Please check your API key and try again.",
+          msg: "AI analysis failed. Please try again later.",
           toastLength: Toast.LENGTH_LONG,
         );
         setState(() {
@@ -206,12 +218,38 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
                     color: Theme.of(context).primaryColor,
                     size: 50.0,
                   ),
+                  const SizedBox(height: 30),
+                  ShimmerLoading(
+                    isLoading: true,
+                    child: Column(
+                      children: [
+                        ShimmerBox(
+                          width: screenWidth * 0.7,
+                          height: 24,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        const SizedBox(height: 16),
+                        ShimmerBox(
+                          width: screenWidth * 0.5,
+                          height: 18,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        const SizedBox(height: 12),
+                        ShimmerBox(
+                          width: screenWidth * 0.4,
+                          height: 16,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   Text(
                     'Processing ${_images.length} page${_images.length > 1 ? 's' : ''}...',
                     style: TextStyle(
                       fontSize: 16,
-                      color: isDark ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
                     ),
                   ),
                 ],

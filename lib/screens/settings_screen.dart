@@ -4,7 +4,9 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/auth_service.dart';
+import '../services/rate_limit_service.dart';
 import 'landing_screen.dart';
+import 'legal_document_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -48,7 +50,53 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 20),
+
+                // Legal Disclaimer Banner
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[50],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.amber[700]!, width: 2),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.amber[900],
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Important Legal Notice',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber[900],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'SignaSure is NOT a substitute for legal advice. Always consult a qualified attorney before signing any legal document.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.amber[900],
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
 
                 // Profile Section
                 _buildSection(
@@ -123,6 +171,53 @@ class SettingsScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
+                // Usage Statistics Section
+                _buildSection(
+                  context,
+                  title: 'AI Analysis Usage',
+                  isDark: isDark,
+                  children: [
+                    FutureBuilder<UsageStats>(
+                      future: RateLimitService.getUsageStats(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+
+                        final stats = snapshot.data!;
+                        return Column(
+                          children: [
+                            _buildUsageTile(
+                              context,
+                              icon: Icons.access_time,
+                              label: 'This Hour',
+                              used: stats.usedThisHour,
+                              remaining: stats.remainingThisHour,
+                              max: stats.maxPerHour,
+                              isDark: isDark,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildUsageTile(
+                              context,
+                              icon: Icons.today,
+                              label: 'Today',
+                              used: stats.usedToday,
+                              remaining: stats.remainingToday,
+                              max: stats.maxPerDay,
+                              isDark: isDark,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
                 // About Section
                 _buildSection(
                   context,
@@ -140,10 +235,18 @@ class SettingsScreen extends StatelessWidget {
                     _buildInfoTile(
                       context,
                       icon: Icons.description_outlined,
-                      label: 'Terms & Conditions',
+                      label: 'Terms of Service',
                       isDark: isDark,
                       onTap: () {
-                        // Navigate to terms
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LegalDocumentScreen(
+                              title: 'Terms of Service',
+                              assetPath: 'assets/legal/terms_of_service.md',
+                            ),
+                          ),
+                        );
                       },
                     ),
                     const SizedBox(height: 12),
@@ -153,7 +256,15 @@ class SettingsScreen extends StatelessWidget {
                       label: 'Privacy Policy',
                       isDark: isDark,
                       onTap: () {
-                        // Navigate to privacy policy
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LegalDocumentScreen(
+                              title: 'Privacy Policy',
+                              assetPath: 'assets/legal/privacy_policy.md',
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ],
@@ -365,6 +476,7 @@ class SettingsScreen extends StatelessWidget {
     String? value,
     required bool isDark,
     VoidCallback? onTap,
+    Widget? trailing,
   }) {
     return InkWell(
       onTap: onTap,
@@ -390,15 +502,20 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             if (value != null)
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
                 ),
-              )
-            else if (onTap != null)
+              ),
+            if (trailing != null)
+              trailing
+            else if (onTap != null && value == null)
               Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
@@ -525,6 +642,71 @@ class SettingsScreen extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w700,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUsageTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required int used,
+    required int remaining,
+    required int max,
+    required bool isDark,
+  }) {
+    final percentage = max > 0 ? used / max : 0.0;
+    final Color color = remaining > 0 ? Colors.green : Colors.orange;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$used / $max',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: percentage,
+            backgroundColor: isDark ? Colors.grey[700] : Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$remaining remaining',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
             ),
           ),
         ],

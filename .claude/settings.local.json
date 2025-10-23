@@ -7,7 +7,8 @@
       "Bash(copy:*)",
       "Bash(gradlew:*)",
       "Bash(curl \"https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyCTsQcw7mVdiFk2S8C3GqhGscdzyFxfwYg\")",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(flutter pub get:*)"
     ],
     "deny": [],
     "ask": []

@@ -44,5 +44,24 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Environment variables
+# Environment variables and credentials
 .env
+*.env
+
+# Firebase configuration files (use your own!)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+firebase.json
+.firebaserc
+
+# API Keys and secrets
+**/api_keys.txt
+**/secrets.txt
+android/key.properties
+ios/Runner/Secrets.plist
+
+# Signing keys
+*.jks
+*.keystore
+*.p12
+*.mobileprovision

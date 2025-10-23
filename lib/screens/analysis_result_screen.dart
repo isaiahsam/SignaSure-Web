@@ -19,7 +19,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -46,6 +46,24 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     if (riskScore <= 6) return 'Medium Risk';
     if (riskScore <= 8) return 'High Risk';
     return 'Critical Risk';
+  }
+
+  String _getSigningRecommendation(double riskScore) {
+    if (riskScore <= 2) return 'Ready to Sign';
+    if (riskScore <= 6) return 'Sign with Caution';
+    return 'Do Not Sign - Consult Legal Counsel';
+  }
+
+  Color _getRecommendationColor(double riskScore) {
+    if (riskScore <= 2) return Colors.green;
+    if (riskScore <= 6) return Colors.orange;
+    return Colors.red;
+  }
+
+  IconData _getRecommendationIcon(double riskScore) {
+    if (riskScore <= 2) return Icons.check_circle;
+    if (riskScore <= 6) return Icons.warning;
+    return Icons.cancel;
   }
 
   Color _getSeverityColor(FlagSeverity severity) {
@@ -159,9 +177,6 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
 
   @override
   Widget build(BuildContext context) {
-    final analysis = widget.document.analysis;
-    final riskScore = analysis?.riskScore ?? 0.0;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analysis Results'),
@@ -193,7 +208,6 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
             Tab(text: 'Overview'),
             Tab(text: 'Flags'),
             Tab(text: 'Clauses'),
-            Tab(text: 'Full Text'),
           ],
         ),
       ),
@@ -203,7 +217,6 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           _buildOverviewTab(),
           _buildFlagsTab(),
           _buildClausesTab(),
-          _buildFullTextTab(),
         ],
       ),
     );
@@ -292,6 +305,42 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // Signing Recommendation Banner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _getRecommendationColor(riskScore).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _getRecommendationColor(riskScore),
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _getRecommendationIcon(riskScore),
+                          color: _getRecommendationColor(riskScore),
+                          size: 32,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _getSigningRecommendation(riskScore),
+                            style: TextStyle(
+                              color: _getRecommendationColor(riskScore),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   Row(
                     children: [
                       Expanded(
@@ -449,7 +498,51 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                 ),
               ),
             ),
+            const SizedBox(height: 16),
           ],
+
+          // Legal Disclaimer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber[700]!, width: 2),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.amber[900],
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Legal Disclaimer',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber[900],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This analysis is provided for informational purposes only and does NOT constitute legal advice. SignaSure is not a substitute for professional legal counsel. Always consult with a qualified attorney before signing any legal document or making legal decisions.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.amber[900],
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -488,60 +581,91 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: flags.length,
-      itemBuilder: (context, index) {
-        final flag = flags[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ExpansionTile(
-            leading: Icon(
-              _getSeverityIcon(flag.severity),
-              color: _getSeverityColor(flag.severity),
-            ),
-            title: Text(
-              flag.title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(_getFlagTypeDisplayName(flag.type)),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red[200]!),
+          ),
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Description:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(flag.description),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Highlighted Text:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.yellow[100],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.yellow[300]!),
-                      ),
-                      child: Text(
-                        flag.highlightedText,
-                        style: const TextStyle(fontStyle: FontStyle.italic),
-                      ),
-                    ),
-                  ],
+              Icon(Icons.info_outline, color: Colors.red[700], size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Flags are potential issues or concerning terms that may pose risks',
+                  style: TextStyle(
+                    color: Colors.red[900],
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: flags.length,
+            itemBuilder: (context, index) {
+              final flag = flags[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ExpansionTile(
+                  leading: Icon(
+                    _getSeverityIcon(flag.severity),
+                    color: _getSeverityColor(flag.severity),
+                  ),
+                  title: Text(
+                    flag.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(_getFlagTypeDisplayName(flag.type)),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Description:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(flag.description),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Highlighted Text:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.yellow[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.yellow[300]!),
+                            ),
+                            child: Text(
+                              flag.highlightedText,
+                              style: const TextStyle(fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -572,157 +696,115 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: clauses.length,
-      itemBuilder: (context, index) {
-        final clause = clauses[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ExpansionTile(
-            leading: Container(
-              width: 8,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _getImportanceColor(clause.importance),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            title: Text(
-              clause.title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              'Importance: ${clause.importance.toString().split('.').last.toUpperCase()}',
-              style: TextStyle(color: _getImportanceColor(clause.importance)),
-            ),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue[200]!),
+          ),
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Clauses are important terms you should understand, explained in plain English',
+                  style: TextStyle(
+                    color: Colors.blue[900],
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: clauses.length,
+            itemBuilder: (context, index) {
+              final clause = clauses[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ExpansionTile(
+                  leading: Container(
+                    width: 8,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _getImportanceColor(clause.importance),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  title: Text(
+                    clause.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'Importance: ${clause.importance.toString().split('.').last.toUpperCase()}',
+                    style: TextStyle(color: _getImportanceColor(clause.importance)),
+                  ),
                   children: [
-                    const Text(
-                      'Plain English Explanation:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green[200]!),
-                      ),
-                      child: Text(
-                        clause.simplifiedExplanation,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Original Legal Text:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Text(
-                        clause.originalText,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontStyle: FontStyle.italic,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Plain English Explanation:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green[200]!),
+                            ),
+                            child: Text(
+                              clause.simplifiedExplanation,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Original Legal Text:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Text(
+                              clause.originalText,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 
-  Widget _buildFullTextTab() {
-    final extractedText = widget.document.extractedText;
-
-    if (extractedText == null || extractedText.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.text_snippet,
-              size: 80,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'No Text Available',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.text_snippet,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Extracted Text',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: SelectableText(
-                  extractedText,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(

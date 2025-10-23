@@ -2,35 +2,49 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/document.dart';
+import 'rate_limit_service.dart';
 
 class AIAnalysisService {
   static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
-  static Future<DocumentAnalysis?> analyzeDocument(String extractedText, DocumentType documentType) async {
+  static Future<DocumentAnalysis?> analyzeDocument(
+    String extractedText,
+    DocumentType documentType,
+  ) async {
     try {
-      // Debug: Print API key status
-      print('API Key loaded: ${_apiKey.isNotEmpty}');
-      print('API Key length: ${_apiKey.length}');
-      print('API Key first 10 chars: ${_apiKey.length >= 10 ? _apiKey.substring(0, 10) : _apiKey}');
+      // Check rate limit first
+      final rateLimitResult = await RateLimitService.canMakeRequest();
+      if (!rateLimitResult.canProceed) {
+        print('Rate limit exceeded: ${rateLimitResult.message}');
+        throw RateLimitException(rateLimitResult.message);
+      }
 
       // Validate API key
-      if (_apiKey.isEmpty || _apiKey == 'your_gemini_api_key_here') {
+      if (_apiKey.isEmpty) {
         print('Error: Gemini API key not configured');
         return null;
       }
 
       final response = await _callGemini(extractedText, documentType);
       if (response != null) {
+        // Record successful usage
+        await RateLimitService.recordUsage();
         return _parseAnalysisResponse(response);
       }
       return null;
     } catch (e) {
+      if (e is RateLimitException) {
+        rethrow;
+      }
       print('Error analyzing document: $e');
       return null;
     }
   }
 
-  static Future<Map<String, dynamic>?> _callGemini(String text, DocumentType documentType) async {
+  static Future<Map<String, dynamic>?> _callGemini(
+    String text,
+    DocumentType documentType,
+  ) async {
     try {
       final prompt = _buildAnalysisPrompt(text, documentType);
 
@@ -328,4 +342,13 @@ ONLY flag real issues. If the document is fairly standard, reflect that with app
       ],
     );
   }
+}
+
+/// Exception thrown when rate limit is exceeded
+class RateLimitException implements Exception {
+  final String message;
+  RateLimitException(this.message);
+
+  @override
+  String toString() => message;
 }
