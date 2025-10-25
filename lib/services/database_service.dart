@@ -17,7 +17,7 @@ class DatabaseService {
     String dbPath = path.join(await getDatabasesPath(), 'signasure.db');
     return await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onCreate: _createDatabase,
       onUpgrade: _upgradeDatabase,
     );
@@ -27,6 +27,7 @@ class DatabaseService {
     await db.execute('''
       CREATE TABLE $_tableName (
         id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
         filePath TEXT NOT NULL,
         fileName TEXT NOT NULL,
         scanDate TEXT NOT NULL,
@@ -42,17 +43,34 @@ class DatabaseService {
   static Future<void> _upgradeDatabase(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       // Add new columns if they don't exist
-      await db.execute('ALTER TABLE $_tableName ADD COLUMN isFavorite INTEGER DEFAULT 0');
-      await db.execute('ALTER TABLE $_tableName ADD COLUMN customTitle TEXT');
+      try {
+        await db.execute('ALTER TABLE $_tableName ADD COLUMN isFavorite INTEGER DEFAULT 0');
+      } catch (e) {
+        // Column already exists, ignore
+      }
+      try {
+        await db.execute('ALTER TABLE $_tableName ADD COLUMN customTitle TEXT');
+      } catch (e) {
+        // Column already exists, ignore
+      }
+    }
+    if (oldVersion < 3) {
+      // Add userId column for multi-user support
+      try {
+        await db.execute('ALTER TABLE $_tableName ADD COLUMN userId TEXT DEFAULT ""');
+      } catch (e) {
+        // Column already exists, ignore
+      }
     }
   }
 
-  static Future<void> insertDocument(Document document) async {
+  static Future<void> insertDocument(Document document, String userId) async {
     final db = await database;
     await db.insert(
       _tableName,
       {
         'id': document.id,
+        'userId': userId,
         'filePath': document.filePath,
         'fileName': document.fileName,
         'scanDate': document.scanDate.toIso8601String(),
@@ -68,10 +86,12 @@ class DatabaseService {
     );
   }
 
-  static Future<List<Document>> getAllDocuments() async {
+  static Future<List<Document>> getAllDocuments(String userId) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableName,
+      where: 'userId = ?',
+      whereArgs: [userId],
       orderBy: 'scanDate DESC',
     );
 

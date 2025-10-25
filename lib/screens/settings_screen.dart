@@ -5,17 +5,52 @@ import '../providers/theme_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/auth_service.dart';
 import '../services/rate_limit_service.dart';
+import '../providers/font_size_provider.dart';
 import 'landing_screen.dart';
 import 'legal_document_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  Future<Map<String, dynamic>> _getUsageInfo() async {
+    final stats = await RateLimitService.getUsageStats();
+    final rateLimitResult = await RateLimitService.canMakeRequest();
+    return {
+      'stats': stats,
+      'rateLimitResult': rateLimitResult,
+    };
+  }
+
+  String _formatTimeUntil(DateTime resetTime) {
+    final now = DateTime.now();
+    final difference = resetTime.difference(now);
+
+    if (difference.isNegative) {
+      return 'Now';
+    }
+
+    if (difference.inHours > 0) {
+      final hours = difference.inHours;
+      final minutes = difference.inMinutes.remainder(60);
+      if (minutes > 0) {
+        return '${hours}h ${minutes}m';
+      }
+      return '${hours}h';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m';
+    } else {
+      return '${difference.inSeconds}s';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final userProvider = Provider.of<UserProvider>(context);
+    final fontSizeProvider = Provider.of<FontSizeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final authService = AuthService();
+    final userEmail = authService.currentUser?.email ?? 'No email';
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
@@ -120,6 +155,15 @@ class SettingsScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildProfileTile(
                       context,
+                      icon: Icons.email_outlined,
+                      label: 'Email',
+                      value: userEmail,
+                      isDark: isDark,
+                      onTap: null, // Cannot edit email
+                    ),
+                    const SizedBox(height: 12),
+                    _buildProfileTile(
+                      context,
                       icon: Icons.phone_outlined,
                       label: 'Phone Number',
                       value: userProvider.phoneNumber.isEmpty
@@ -149,10 +193,10 @@ class SettingsScreen extends StatelessWidget {
                       context,
                       icon: Icons.light_mode_outlined,
                       label: 'Light Mode',
-                      isSelected: !isDark,
+                      isSelected: themeProvider.themeMode == AppThemeMode.light,
                       isDark: isDark,
                       onTap: () {
-                        if (isDark) themeProvider.toggleTheme();
+                        themeProvider.setThemeMode(AppThemeMode.light);
                       },
                     ),
                     const SizedBox(height: 12),
@@ -160,10 +204,75 @@ class SettingsScreen extends StatelessWidget {
                       context,
                       icon: Icons.dark_mode_outlined,
                       label: 'Dark Mode',
-                      isSelected: isDark,
+                      isSelected: themeProvider.themeMode == AppThemeMode.dark,
                       isDark: isDark,
                       onTap: () {
-                        if (!isDark) themeProvider.toggleTheme();
+                        themeProvider.setThemeMode(AppThemeMode.dark);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildThemeTile(
+                      context,
+                      icon: Icons.brightness_auto,
+                      label: 'System',
+                      isSelected: themeProvider.themeMode == AppThemeMode.system,
+                      isDark: isDark,
+                      onTap: () {
+                        themeProvider.setThemeMode(AppThemeMode.system);
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Font Size Section
+                _buildSection(
+                  context,
+                  title: 'Font Size',
+                  isDark: isDark,
+                  children: [
+                    _buildThemeTile(
+                      context,
+                      icon: Icons.text_fields,
+                      label: 'Small',
+                      isSelected: fontSizeProvider.fontSize == FontSize.small,
+                      isDark: isDark,
+                      onTap: () {
+                        fontSizeProvider.setFontSize(FontSize.small);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildThemeTile(
+                      context,
+                      icon: Icons.text_fields,
+                      label: 'Medium',
+                      isSelected: fontSizeProvider.fontSize == FontSize.medium,
+                      isDark: isDark,
+                      onTap: () {
+                        fontSizeProvider.setFontSize(FontSize.medium);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildThemeTile(
+                      context,
+                      icon: Icons.text_fields,
+                      label: 'Large',
+                      isSelected: fontSizeProvider.fontSize == FontSize.large,
+                      isDark: isDark,
+                      onTap: () {
+                        fontSizeProvider.setFontSize(FontSize.large);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildThemeTile(
+                      context,
+                      icon: Icons.text_fields,
+                      label: 'Extra Large',
+                      isSelected: fontSizeProvider.fontSize == FontSize.extraLarge,
+                      isDark: isDark,
+                      onTap: () {
+                        fontSizeProvider.setFontSize(FontSize.extraLarge);
                       },
                     ),
                   ],
@@ -177,8 +286,8 @@ class SettingsScreen extends StatelessWidget {
                   title: 'AI Analysis Usage',
                   isDark: isDark,
                   children: [
-                    FutureBuilder<UsageStats>(
-                      future: RateLimitService.getUsageStats(),
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: _getUsageInfo(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Padding(
@@ -187,7 +296,9 @@ class SettingsScreen extends StatelessWidget {
                           );
                         }
 
-                        final stats = snapshot.data!;
+                        final stats = snapshot.data!['stats'] as UsageStats;
+                        final rateLimitResult = snapshot.data!['rateLimitResult'] as RateLimitResult;
+
                         return Column(
                           children: [
                             _buildUsageTile(
@@ -198,6 +309,7 @@ class SettingsScreen extends StatelessWidget {
                               remaining: stats.remainingThisHour,
                               max: stats.maxPerHour,
                               isDark: isDark,
+                              resetTime: rateLimitResult.hourlyResetTime,
                             ),
                             const SizedBox(height: 12),
                             _buildUsageTile(
@@ -208,6 +320,7 @@ class SettingsScreen extends StatelessWidget {
                               remaining: stats.remainingToday,
                               max: stats.maxPerDay,
                               isDark: isDark,
+                              resetTime: rateLimitResult.dailyResetTime,
                             ),
                           ],
                         );
@@ -351,7 +464,7 @@ class SettingsScreen extends StatelessWidget {
     required String label,
     required String value,
     required bool isDark,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
     return InkWell(
       onTap: onTap,
@@ -549,6 +662,16 @@ class SettingsScreen extends StatelessWidget {
     if (confirmed == true) {
       try {
         final authService = AuthService();
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+        final fontSizeProvider = Provider.of<FontSizeProvider>(context, listen: false);
+
+        // Clear user data from providers
+        userProvider.clearUserData();
+        themeProvider.clearTheme();
+        fontSizeProvider.clearFontSize();
+
+        // Sign out from Firebase
         await authService.signOut();
 
         if (context.mounted) {
@@ -657,9 +780,16 @@ class SettingsScreen extends StatelessWidget {
     required int remaining,
     required int max,
     required bool isDark,
+    DateTime? resetTime,
   }) {
     final percentage = max > 0 ? used / max : 0.0;
-    final Color color = remaining > 0 ? Colors.green : Colors.orange;
+
+    // Dynamic color based on remaining: green (2+), orange (1), red (0)
+    final Color color = remaining >= 2
+        ? Colors.green
+        : remaining == 1
+            ? Colors.orange
+            : Colors.red;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -703,7 +833,11 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '$remaining remaining',
+            remaining > 0
+                ? '$remaining remaining'
+                : (resetTime != null
+                    ? 'Resets in ${_formatTimeUntil(resetTime)}'
+                    : 'Limit reached'),
             style: TextStyle(
               fontSize: 12,
               color: isDark ? Colors.grey[400] : Colors.grey[600],

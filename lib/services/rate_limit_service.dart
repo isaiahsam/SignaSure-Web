@@ -1,17 +1,24 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_service.dart';
 
 class RateLimitService {
-  static const String _usageKey = 'api_usage_timestamps';
   static const int maxPerHour = 3;
   static const int maxPerDay = 10;
+
+  /// Get usage key for current user
+  static String _getUsageKey() {
+    final userId = AuthService().currentUser?.uid ?? 'anonymous';
+    return 'api_usage_timestamps_$userId';
+  }
 
   /// Check if user can make another API call
   static Future<RateLimitResult> canMakeRequest() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
+    final usageKey = _getUsageKey();
 
-    // Get stored timestamps
-    final storedTimestamps = prefs.getStringList(_usageKey) ?? [];
+    // Get stored timestamps for current user
+    final storedTimestamps = prefs.getStringList(usageKey) ?? [];
     final timestamps = storedTimestamps
         .map((ts) => DateTime.parse(ts))
         .where((dt) => now.difference(dt).inHours < 24) // Keep only last 24 hours
@@ -53,16 +60,34 @@ class RateLimitService {
       );
     }
 
-    // Calculate remaining
+    // Calculate remaining and reset times
     final remainingHourly = maxPerHour - lastHour;
     final remainingDaily = maxPerDay - lastDay;
+
+    // Calculate next reset time for hourly
+    DateTime hourlyResetTime = now.add(const Duration(hours: 1));
+    if (timestamps.where((dt) => now.difference(dt).inHours < 1).isNotEmpty) {
+      final oldestInHour = timestamps
+          .where((dt) => now.difference(dt).inHours < 1)
+          .reduce((a, b) => a.isBefore(b) ? a : b);
+      hourlyResetTime = oldestInHour.add(const Duration(hours: 1));
+    }
+
+    // Calculate next reset time for daily
+    DateTime dailyResetTime = now.add(const Duration(hours: 24));
+    if (timestamps.isNotEmpty) {
+      final oldestInDay = timestamps.reduce((a, b) => a.isBefore(b) ? a : b);
+      dailyResetTime = oldestInDay.add(const Duration(hours: 24));
+    }
 
     return RateLimitResult(
       canProceed: true,
       remaining: remainingHourly < remainingDaily ? remainingHourly : remainingDaily,
-      resetTime: now.add(const Duration(hours: 1)),
-      limitType: 'none',
+      resetTime: hourlyResetTime,
+      limitType: 'available',
       message: 'You have $remainingHourly analyses left this hour, $remainingDaily left today.',
+      hourlyResetTime: hourlyResetTime,
+      dailyResetTime: dailyResetTime,
     );
   }
 
@@ -70,8 +95,9 @@ class RateLimitService {
   static Future<void> recordUsage() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
+    final usageKey = _getUsageKey();
 
-    final storedTimestamps = prefs.getStringList(_usageKey) ?? [];
+    final storedTimestamps = prefs.getStringList(usageKey) ?? [];
     final timestamps = storedTimestamps
         .map((ts) => DateTime.parse(ts))
         .where((dt) => now.difference(dt).inHours < 24)
@@ -80,7 +106,7 @@ class RateLimitService {
     timestamps.add(now);
 
     await prefs.setStringList(
-      _usageKey,
+      usageKey,
       timestamps.map((dt) => dt.toIso8601String()).toList(),
     );
   }
@@ -89,8 +115,9 @@ class RateLimitService {
   static Future<UsageStats> getUsageStats() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
+    final usageKey = _getUsageKey();
 
-    final storedTimestamps = prefs.getStringList(_usageKey) ?? [];
+    final storedTimestamps = prefs.getStringList(usageKey) ?? [];
     final timestamps = storedTimestamps
         .map((ts) => DateTime.parse(ts))
         .where((dt) => now.difference(dt).inHours < 24)
@@ -112,7 +139,8 @@ class RateLimitService {
   /// Clear all usage data (for testing/admin)
   static Future<void> resetUsage() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_usageKey);
+    final usageKey = _getUsageKey();
+    await prefs.remove(usageKey);
   }
 
   static String _formatDuration(Duration duration) {
@@ -130,8 +158,10 @@ class RateLimitResult {
   final bool canProceed;
   final int remaining;
   final DateTime resetTime;
-  final String limitType; // 'hourly', 'daily', or 'none'
+  final String limitType; // 'hourly', 'daily', 'available', or 'none'
   final String message;
+  final DateTime? hourlyResetTime;
+  final DateTime? dailyResetTime;
 
   RateLimitResult({
     required this.canProceed,
@@ -139,6 +169,8 @@ class RateLimitResult {
     required this.resetTime,
     required this.limitType,
     required this.message,
+    this.hourlyResetTime,
+    this.dailyResetTime,
   });
 }
 

@@ -54,7 +54,7 @@ class Document {
     );
   }
 
-  String get displayTitle => customTitle ?? fileName;
+  String get displayTitle => customTitle ?? analysis?.documentTitle ?? fileName;
 }
 
 enum DocumentType {
@@ -67,6 +67,7 @@ enum DocumentType {
 }
 
 class DocumentAnalysis {
+  final String? documentTitle;
   final List<AnalysisFlag> flags;
   final List<ImportantClause> importantClauses;
   final double riskScore;
@@ -74,6 +75,7 @@ class DocumentAnalysis {
   final List<String> recommendations;
 
   DocumentAnalysis({
+    this.documentTitle,
     required this.flags,
     required this.importantClauses,
     required this.riskScore,
@@ -83,6 +85,7 @@ class DocumentAnalysis {
 
   Map<String, dynamic> toJson() {
     return {
+      'documentTitle': documentTitle,
       'flags': flags.map((f) => f.toJson()).toList(),
       'importantClauses': importantClauses.map((c) => c.toJson()).toList(),
       'riskScore': riskScore,
@@ -93,6 +96,7 @@ class DocumentAnalysis {
 
   factory DocumentAnalysis.fromJson(Map<String, dynamic> json) {
     return DocumentAnalysis(
+      documentTitle: json['documentTitle'],
       flags: (json['flags'] as List)
           .map((f) => AnalysisFlag.fromJson(f))
           .toList(),

@@ -7,6 +7,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:provider/provider.dart';
 import '../services/ocr_service.dart';
 import '../services/ai_analysis_service.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
 import '../providers/theme_provider.dart';
@@ -98,31 +99,10 @@ class _UploadScreenState extends State<UploadScreen> {
         return;
       }
 
-      // Save first file to app directory (or you can combine all files)
-      final directory = await getApplicationDocumentsDirectory();
-      final fileName = _selectedFiles.length > 1
-          ? 'document_${DateTime.now().millisecondsSinceEpoch}_${_selectedFiles.length}_pages'
-          : 'document_${DateTime.now().millisecondsSinceEpoch}_${_fileNames[0]}';
-      final savedFile = File('${directory.path}/$fileName');
-      await _selectedFiles[0].copy(savedFile.path);
-
       // Determine document type based on content
       final documentType = _determineDocumentType(combinedText);
 
-      // Create document record
-      final document = Document(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        filePath: savedFile.path,
-        fileName: fileName,
-        scanDate: DateTime.now(),
-        type: documentType,
-        extractedText: combinedText,
-      );
-
-      // Save to database
-      await DatabaseService.insertDocument(document);
-
-      // Analyze document with AI
+      // Analyze document with AI FIRST (before saving to database)
       DocumentAnalysis? analysis;
       try {
         analysis = await AIAnalysisService.analyzeDocument(
@@ -150,25 +130,35 @@ class _UploadScreenState extends State<UploadScreen> {
         return;
       }
 
-      // Update document with analysis
-      final updatedDocument = Document(
-        id: document.id,
-        filePath: document.filePath,
-        fileName: document.fileName,
-        scanDate: document.scanDate,
-        type: document.type,
-        extractedText: document.extractedText,
+      // Only save file and create document AFTER successful AI analysis
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = _selectedFiles.length > 1
+          ? 'document_${DateTime.now().millisecondsSinceEpoch}_${_selectedFiles.length}_pages'
+          : 'document_${DateTime.now().millisecondsSinceEpoch}_${_fileNames[0]}';
+      final savedFile = File('${directory.path}/$fileName');
+      await _selectedFiles[0].copy(savedFile.path);
+
+      // Create document record with analysis
+      final document = Document(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        filePath: savedFile.path,
+        fileName: fileName,
+        scanDate: DateTime.now(),
+        type: documentType,
+        extractedText: combinedText,
         analysis: analysis,
       );
 
-      await DatabaseService.updateDocument(updatedDocument);
+      // Save to database with user ID
+      final userId = AuthService().currentUser?.uid ?? '';
+      await DatabaseService.insertDocument(document, userId);
 
       // Navigate to analysis result screen
       if (mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => AnalysisResultScreen(document: updatedDocument),
+            builder: (context) => AnalysisResultScreen(document: document),
           ),
         );
       }

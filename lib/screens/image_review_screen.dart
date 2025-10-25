@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/ocr_service.dart';
 import '../services/ai_analysis_service.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
 import '../widgets/shimmer_loading.dart';
@@ -105,25 +106,12 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
       final savedFile = File('${directory.path}/$fileName');
       await _images[0].copy(savedFile.path);
 
-      // Create document record
-      final document = Document(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        filePath: savedFile.path,
-        fileName: fileName,
-        scanDate: DateTime.now(),
-        type: DocumentType.other,
-        extractedText: combinedText,
-      );
-
-      // Save to database
-      await DatabaseService.insertDocument(document);
-
-      // Analyze document with AI
+      // Analyze document with AI FIRST (before saving to database)
       DocumentAnalysis? analysis;
       try {
         analysis = await AIAnalysisService.analyzeDocument(
           combinedText,
-          document.type,
+          DocumentType.other,
         );
       } on RateLimitException catch (e) {
         Fluttertoast.showToast(
@@ -146,25 +134,27 @@ class _ImageReviewScreenState extends State<ImageReviewScreen> {
         return;
       }
 
-      // Update document with analysis
-      final updatedDocument = Document(
-        id: document.id,
-        filePath: document.filePath,
-        fileName: document.fileName,
-        scanDate: document.scanDate,
-        type: document.type,
-        extractedText: document.extractedText,
+      // Only create and save document AFTER successful AI analysis
+      final document = Document(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        filePath: savedFile.path,
+        fileName: fileName,
+        scanDate: DateTime.now(),
+        type: DocumentType.other,
+        extractedText: combinedText,
         analysis: analysis,
       );
 
-      await DatabaseService.updateDocument(updatedDocument);
+      // Save to database with user ID
+      final userId = AuthService().currentUser?.uid ?? '';
+      await DatabaseService.insertDocument(document, userId);
 
       // Navigate to analysis result screen
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => AnalysisResultScreen(document: updatedDocument),
+            builder: (context) => AnalysisResultScreen(document: document),
           ),
         );
       }

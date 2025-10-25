@@ -62,12 +62,15 @@ class AIAnalysisService {
           }
         ],
         'generationConfig': {
-          'temperature': 0.3,
+          'temperature': 0.1,
+          'topP': 0.8,
+          'topK': 20,
           'maxOutputTokens': 4000,
           'responseMimeType': 'application/json',
           'responseSchema': {
             'type': 'object',
             'properties': {
+              'documentTitle': {'type': 'string'},
               'flags': {
                 'type': 'array',
                 'items': {
@@ -102,7 +105,7 @@ class AIAnalysisService {
                 'items': {'type': 'string'}
               }
             },
-            'required': ['flags', 'importantClauses', 'riskScore', 'summary', 'recommendations']
+            'required': ['documentTitle', 'flags', 'importantClauses', 'riskScore', 'summary', 'recommendations']
           }
         }
       };
@@ -175,14 +178,20 @@ Document text:
 
 CRITICAL INSTRUCTIONS:
 1. Respond with ONLY valid JSON. Do NOT use markdown code blocks.
-2. ONLY flag ACTUAL problems that exist in the document text - do not flag hypothetical issues or missing clauses unless they are critical
-3. Be balanced and fair - normal standard terms should have LOW risk scores (1-3), moderate concerns MEDIUM (4-6), serious issues HIGH (7-8), only truly dangerous terms CRITICAL (9-10)
-4. Recommendations should ONLY be about what to do with THIS specific document (e.g., "Negotiate the fee in section 3", "Request clarification on the termination clause") - DO NOT give generic advice about conversations or relationships
-5. Only highlight clauses that are actually unusual, unfavorable, or important - standard boilerplate should be ignored
+2. ONLY flag ACTUAL problems that exist in the document text - do not flag hypothetical issues or missing clauses
+3. Be BALANCED and FAIR - Most documents are reasonable. Only flag terms that are genuinely problematic or unusual
+4. Risk scoring should be CONSERVATIVE:
+   - Most standard documents should score 2-4 (low to moderate)
+   - Only flag serious issues that a reasonable person would genuinely be concerned about
+   - Reserve scores above 7 for truly predatory or dangerous terms
+5. DO NOT flag standard legal boilerplate as problematic (e.g., normal liability clauses, standard warranties, typical termination terms)
+6. Recommendations should ONLY be about specific actionable items in THIS document
+7. If the document is generally fair and standard, reflect that in your analysis - don't manufacture problems
 
 Provide analysis in this JSON format:
 
 {
+  "documentTitle": "Short descriptive title (3-6 words) based on document content (e.g., 'Apartment Lease Agreement', 'Employment Contract - Tech Corp', 'Car Loan Agreement')",
   "flags": [
     {
       "type": "hiddenFee|unfavorableTerm|missingClause|loophole|automaticRenewal|penaltyClause|limitedLiability|other",
@@ -207,14 +216,14 @@ Provide analysis in this JSON format:
   ]
 }
 
-Risk Score Guidelines:
-- 0-2: Very safe, standard terms
-- 3-4: Minor concerns, mostly standard
-- 5-6: Moderate concerns worth reviewing
-- 7-8: Significant issues requiring attention
+Risk Score Guidelines (BE CONSERVATIVE):
+- 0-2: Excellent terms, very favorable or standard
+- 3-4: Standard and acceptable terms (MOST documents should be here)
+- 5-6: Some concerns worth noting, but still reasonable
+- 7-8: Significant issues that need attention
 - 9-10: Severe problems, do not sign without legal review
 
-ONLY flag real issues. If the document is fairly standard, reflect that with appropriate low-to-medium scores.
+Remember: Most legitimate business documents are fair and should score 2-4. Only raise flags for genuinely problematic terms.
 ''';
   }
 
@@ -239,6 +248,7 @@ ONLY flag real issues. If the document is fairly standard, reflect that with app
         .toList() ?? [];
 
     return DocumentAnalysis(
+      documentTitle: response['documentTitle'],
       flags: flags,
       importantClauses: importantClauses,
       riskScore: (response['riskScore'] as num?)?.toDouble() ?? 0.0,

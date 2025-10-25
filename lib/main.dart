@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'screens/main_screen.dart';
 import 'screens/landing_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/user_data_loader.dart';
 import 'services/database_service.dart';
 import 'services/auth_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
+import 'providers/font_size_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => FontSizeProvider()),
       ],
       child: const SignaSureApp(),
     ),
@@ -62,13 +64,8 @@ class SignaSureApp extends StatelessWidget {
               return const LandingScreen();
             }
 
-            // Show main screen if authenticated
-            final user = snapshot.data!;
-            final userProvider =
-                Provider.of<UserProvider>(context, listen: false);
-            userProvider.updateUserName(user.displayName ?? 'User');
-
-            return const MainScreen();
+            // Show user data loader which will load user data before showing main screen
+            return const UserDataLoader();
           },
         ),
       ),

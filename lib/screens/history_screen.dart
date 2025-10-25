@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../models/document.dart';
 import '../providers/theme_provider.dart';
@@ -30,7 +31,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         _isLoading = true;
       });
 
-      final documents = await DatabaseService.getAllDocuments();
+      final userId = AuthService().currentUser?.uid ?? '';
+      final documents = await DatabaseService.getAllDocuments(userId);
       setState(() {
         _documents = documents;
         _isLoading = false;

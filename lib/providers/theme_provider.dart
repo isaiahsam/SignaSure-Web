@@ -1,26 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum AppThemeMode { light, dark, system }
+
 class ThemeProvider extends ChangeNotifier {
-  bool _isDarkMode = false;
-  static const String _themeKey = 'isDarkMode';
+  AppThemeMode _themeMode = AppThemeMode.system;
+  String? _currentUserId;
 
-  bool get isDarkMode => _isDarkMode;
+  AppThemeMode get themeMode => _themeMode;
 
-  ThemeProvider() {
-    _loadTheme();
+  bool get isDarkMode {
+    if (_themeMode == AppThemeMode.system) {
+      // Get system theme
+      final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+      return brightness == Brightness.dark;
+    }
+    return _themeMode == AppThemeMode.dark;
   }
 
-  Future<void> _loadTheme() async {
+  ThemeProvider();
+
+  /// Load theme for specific user
+  Future<void> loadTheme(String userId) async {
+    _currentUserId = userId;
     final prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool(_themeKey) ?? false;
+    final themeModeString = prefs.getString('themeMode_$userId') ?? 'system';
+
+    switch (themeModeString) {
+      case 'light':
+        _themeMode = AppThemeMode.light;
+        break;
+      case 'dark':
+        _themeMode = AppThemeMode.dark;
+        break;
+      default:
+        _themeMode = AppThemeMode.system;
+    }
     notifyListeners();
   }
 
-  Future<void> toggleTheme() async {
-    _isDarkMode = !_isDarkMode;
+  /// Set theme mode
+  Future<void> setThemeMode(AppThemeMode mode) async {
+    if (_currentUserId == null) return;
+
+    _themeMode = mode;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_themeKey, _isDarkMode);
+    await prefs.setString('themeMode_$_currentUserId', mode.toString().split('.').last);
+    notifyListeners();
+  }
+
+  /// Toggle between light and dark (for backwards compatibility)
+  Future<void> toggleTheme() async {
+    await setThemeMode(_themeMode == AppThemeMode.dark ? AppThemeMode.light : AppThemeMode.dark);
+  }
+
+  /// Clear theme data
+  void clearTheme() {
+    _themeMode = AppThemeMode.system;
+    _currentUserId = null;
     notifyListeners();
   }
 

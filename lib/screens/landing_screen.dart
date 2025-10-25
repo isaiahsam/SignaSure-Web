@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../services/auth_service.dart';
+import '../services/preferences_service.dart';
 import '../providers/theme_provider.dart';
-import 'username_prompt_screen.dart';
+import 'onboarding_screen.dart';
+import 'main_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -105,12 +107,38 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
       final userCredential = await _authService.signInWithGoogle();
 
       if (userCredential != null && userCredential.user != null) {
-        // Navigate to username prompt screen
+        // Check if user has completed onboarding
+        final hasCompletedOnboarding = await PreferencesService.hasCompletedOnboarding();
+
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const UsernamePromptScreen()),
-          );
+          if (hasCompletedOnboarding) {
+            // Show animation and go directly to main screen
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const MainScreen(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  // Fade + scale animation
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                        CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                      ),
+                      child: child,
+                    ),
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 600),
+              ),
+            );
+          } else {
+            // First time user - show onboarding tutorial
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+            );
+          }
         }
 
         Fluttertoast.showToast(

@@ -4,6 +4,7 @@ import 'scan_screen.dart';
 import 'upload_screen.dart';
 import 'settings_screen.dart';
 import '../models/document.dart';
+import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import 'analysis_result_screen.dart';
 import '../providers/theme_provider.dart';
@@ -79,7 +80,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _currentPage = 0;
       });
 
-      final documents = await DatabaseService.getAllDocuments();
+      final userId = AuthService().currentUser?.uid ?? '';
+      final documents = await DatabaseService.getAllDocuments(userId);
 
       // Sort: favorites first, then by date
       documents.sort((a, b) {
@@ -108,7 +110,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
 
     try {
-      final documents = await DatabaseService.getAllDocuments();
+      final userId = AuthService().currentUser?.uid ?? '';
+      final documents = await DatabaseService.getAllDocuments(userId);
 
       // Sort: favorites first, then by date
       documents.sort((a, b) {
