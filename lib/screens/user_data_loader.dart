@@ -35,8 +35,8 @@ class _UserDataLoaderState extends State<UserDataLoader> {
     await themeProvider.loadTheme(user.uid);
     await fontSizeProvider.loadFontSize(user.uid);
 
-    // If this is a new user (no stored name), use Google display name (first name only)
-    if (userProvider.userName == 'User' && user.displayName != null) {
+    // Always use Google display name (first name only)
+    if (user.displayName != null) {
       // Extract first name only
       final firstName = user.displayName!.split(' ').first;
       await userProvider.updateUserName(firstName);

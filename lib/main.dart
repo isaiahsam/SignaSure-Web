@@ -48,6 +48,7 @@ class SignaSureApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final fontSizeProvider = Provider.of<FontSizeProvider>(context);
     final authService = AuthService();
 
     return MaterialApp(
@@ -55,6 +56,15 @@ class SignaSureApp extends StatelessWidget {
       theme: themeProvider.lightTheme,
       darkTheme: themeProvider.darkTheme,
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      builder: (context, child) {
+        // Apply font size scale factor
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(fontSizeProvider.scaleFactor),
+          ),
+          child: child!,
+        );
+      },
       home: SplashScreen(
         child: StreamBuilder(
           stream: authService.authStateChanges,
@@ -65,7 +75,8 @@ class SignaSureApp extends StatelessWidget {
             }
 
             // Show user data loader which will load user data before showing main screen
-            return const UserDataLoader();
+            // Use key based on user ID to force recreation when user changes
+            return UserDataLoader(key: ValueKey(snapshot.data!.uid));
           },
         ),
       ),

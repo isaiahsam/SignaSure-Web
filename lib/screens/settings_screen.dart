@@ -145,12 +145,7 @@ class SettingsScreen extends StatelessWidget {
                       label: 'Name',
                       value: userProvider.userName,
                       isDark: isDark,
-                      onTap: () => _showEditDialog(
-                        context,
-                        title: 'Edit Name',
-                        currentValue: userProvider.userName,
-                        onSave: (value) => userProvider.updateUserName(value),
-                      ),
+                      onTap: null, // Cannot edit name - uses Google account first name
                     ),
                     const SizedBox(height: 12),
                     _buildProfileTile(
@@ -232,48 +227,10 @@ class SettingsScreen extends StatelessWidget {
                   title: 'Font Size',
                   isDark: isDark,
                   children: [
-                    _buildThemeTile(
+                    _buildFontSizeSlider(
                       context,
-                      icon: Icons.text_fields,
-                      label: 'Small',
-                      isSelected: fontSizeProvider.fontSize == FontSize.small,
+                      fontSizeProvider: fontSizeProvider,
                       isDark: isDark,
-                      onTap: () {
-                        fontSizeProvider.setFontSize(FontSize.small);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildThemeTile(
-                      context,
-                      icon: Icons.text_fields,
-                      label: 'Medium',
-                      isSelected: fontSizeProvider.fontSize == FontSize.medium,
-                      isDark: isDark,
-                      onTap: () {
-                        fontSizeProvider.setFontSize(FontSize.medium);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildThemeTile(
-                      context,
-                      icon: Icons.text_fields,
-                      label: 'Large',
-                      isSelected: fontSizeProvider.fontSize == FontSize.large,
-                      isDark: isDark,
-                      onTap: () {
-                        fontSizeProvider.setFontSize(FontSize.large);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildThemeTile(
-                      context,
-                      icon: Icons.text_fields,
-                      label: 'Extra Large',
-                      isSelected: fontSizeProvider.fontSize == FontSize.extraLarge,
-                      isDark: isDark,
-                      onTap: () {
-                        fontSizeProvider.setFontSize(FontSize.extraLarge);
-                      },
                     ),
                   ],
                 ),
@@ -510,11 +467,12 @@ class SettingsScreen extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: isDark ? Colors.grey[600] : Colors.grey[400],
-            ),
+            if (onTap != null)
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+              ),
           ],
         ),
       ),
@@ -579,6 +537,138 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFontSizeSlider(
+    BuildContext context, {
+    required FontSizeProvider fontSizeProvider,
+    required bool isDark,
+  }) {
+    // Map FontSize enum to slider value (0-3)
+    double sliderValue = fontSizeProvider.fontSize.index.toDouble();
+
+    // Calculate percentage for display
+    int percentage = (fontSizeProvider.scaleFactor * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.text_fields,
+                  color: const Color(0xFF2563EB),
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  fontSizeProvider.fontSizeLabel,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$percentage%',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2563EB),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SliderTheme(
+          data: SliderThemeData(
+            activeTrackColor: const Color(0xFF2563EB),
+            inactiveTrackColor: isDark ? Colors.grey[700] : Colors.grey[300],
+            thumbColor: const Color(0xFF2563EB),
+            overlayColor: const Color(0xFF2563EB).withOpacity(0.2),
+            trackHeight: 6,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+          ),
+          child: Slider(
+            value: sliderValue,
+            min: 0,
+            max: 3,
+            divisions: 3,
+            onChanged: (value) {
+              // Map slider value back to FontSize enum
+              FontSize newSize;
+              switch (value.round()) {
+                case 0:
+                  newSize = FontSize.small;
+                  break;
+                case 1:
+                  newSize = FontSize.medium;
+                  break;
+                case 2:
+                  newSize = FontSize.large;
+                  break;
+                case 3:
+                  newSize = FontSize.extraLarge;
+                  break;
+                default:
+                  newSize = FontSize.medium;
+              }
+              fontSizeProvider.setFontSize(newSize);
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Small',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[500] : Colors.grey[600],
+              ),
+            ),
+            Text(
+              'Medium',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[500] : Colors.grey[600],
+              ),
+            ),
+            Text(
+              'Large',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[500] : Colors.grey[600],
+              ),
+            ),
+            Text(
+              'Extra Large',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[500] : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -831,17 +921,37 @@ class SettingsScreen extends StatelessWidget {
             minHeight: 6,
             borderRadius: BorderRadius.circular(3),
           ),
-          const SizedBox(height: 4),
-          Text(
-            remaining > 0
-                ? '$remaining remaining'
-                : (resetTime != null
-                    ? 'Resets in ${_formatTimeUntil(resetTime)}'
-                    : 'Limit reached'),
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$remaining remaining',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              if (resetTime != null)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.refresh,
+                      size: 12,
+                      color: isDark ? Colors.grey[500] : Colors.grey[500],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Resets in ${_formatTimeUntil(resetTime)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[500] : Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
         ],
       ),
