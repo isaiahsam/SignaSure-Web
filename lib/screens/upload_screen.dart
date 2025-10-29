@@ -9,6 +9,7 @@ import '../services/ocr_service.dart';
 import '../services/ai_analysis_service.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/rate_limit_service.dart';
 import '../models/document.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/shimmer_loading.dart';
@@ -25,6 +26,22 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _isProcessing = false;
   List<File> _selectedFiles = [];
   List<String> _fileNames = [];
+  UsageStats? _usageStats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsageStats();
+  }
+
+  Future<void> _loadUsageStats() async {
+    final stats = await RateLimitService.getUsageStats();
+    if (mounted) {
+      setState(() {
+        _usageStats = stats;
+      });
+    }
+  }
 
   Future<void> _pickFiles() async {
     try {
@@ -35,9 +52,39 @@ class _UploadScreenState extends State<UploadScreen> {
       );
 
       if (result != null) {
+        // Filter out files with null paths and validate files
+        List<File> validFiles = [];
+        List<String> validFileNames = [];
+
+        for (var platformFile in result.files) {
+          if (platformFile.path != null) {
+            final file = File(platformFile.path!);
+            // Verify the file exists and is readable
+            if (await file.exists()) {
+              validFiles.add(file);
+              validFileNames.add(platformFile.name);
+            } else {
+              print('File does not exist: ${platformFile.path}');
+            }
+          } else {
+            print('File path is null for: ${platformFile.name}');
+            Fluttertoast.showToast(
+              msg: "Cannot access file: ${platformFile.name}",
+              toastLength: Toast.LENGTH_SHORT,
+            );
+          }
+        }
+
+        if (validFiles.isEmpty && result.files.isNotEmpty) {
+          Fluttertoast.showToast(
+            msg: "No valid files could be loaded",
+            toastLength: Toast.LENGTH_SHORT,
+          );
+        }
+
         setState(() {
-          _selectedFiles = result.files.map((file) => File(file.path!)).toList();
-          _fileNames = result.files.map((file) => file.name).toList();
+          _selectedFiles = validFiles;
+          _fileNames = validFileNames;
         });
       }
     } catch (e) {
@@ -116,6 +163,15 @@ class _UploadScreenState extends State<UploadScreen> {
           backgroundColor: Colors.orange,
         );
         setState(() => _isProcessing = false);
+        await _loadUsageStats();  // Reload stats after rate limit error
+        return;
+      } on AIAnalysisException catch (e) {
+        Fluttertoast.showToast(
+          msg: e.message,
+          toastLength: Toast.LENGTH_LONG,
+          backgroundColor: Colors.red,
+        );
+        setState(() => _isProcessing = false);
         return;
       }
 
@@ -163,11 +219,14 @@ class _UploadScreenState extends State<UploadScreen> {
         );
       }
 
-      // Reset state
+      // Reset state and reload usage stats
       setState(() {
         _selectedFiles.clear();
         _fileNames.clear();
       });
+
+      // Reload usage stats after successful analysis
+      await _loadUsageStats();
 
       Fluttertoast.showToast(
         msg: "Documents uploaded and analyzed successfully!",
@@ -241,8 +300,16 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   double _getFileSizeInMB(File file) {
-    final bytes = file.lengthSync();
-    return bytes / (1024 * 1024);
+    try {
+      if (file.existsSync()) {
+        final bytes = file.lengthSync();
+        return bytes / (1024 * 1024);
+      }
+      return 0.0;
+    } catch (e) {
+      print('Error getting file size: $e');
+      return 0.0;
+    }
   }
 
   double _getTotalSizeInMB() {
@@ -426,6 +493,66 @@ class _UploadScreenState extends State<UploadScreen> {
                     ),
 
                     const SizedBox(height: 20),
+
+                    // Usage Stats
+                    if (_usageStats != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: isDark
+                                ? [const Color(0xFF252525), const Color(0xFF2A2A2A)]
+                                : [Colors.white, Colors.grey[50]!],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.analytics_outlined,
+                              color: _usageStats!.remainingThisHour > 5
+                                  ? Colors.green
+                                  : (_usageStats!.remainingThisHour > 2 ? Colors.orange : Colors.red),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'AI Analyses Available',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.white : Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_usageStats!.remainingThisHour} left this hour • ${_usageStats!.remainingToday} left today',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
 
                     // Selected files info
                     if (_selectedFiles.isNotEmpty) ...[

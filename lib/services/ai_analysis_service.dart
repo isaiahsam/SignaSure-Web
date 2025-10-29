@@ -33,19 +33,31 @@ class AIAnalysisService {
       }
       return null;
     } catch (e) {
-      if (e is RateLimitException) {
+      if (e is RateLimitException || e is AIAnalysisException) {
         rethrow;
       }
       print('Error analyzing document: $e');
-      return null;
+      throw AIAnalysisException('Unexpected error during analysis. Please try again.');
     }
   }
 
   static Future<Map<String, dynamic>?> _callGemini(
     String text,
     DocumentType documentType,
+    {int retryCount = 0}
   ) async {
+    const maxRetries = 2;
+
     try {
+      // Validate input text
+      if (text.trim().isEmpty) {
+        throw AIAnalysisException('Document text is empty. Cannot analyze.');
+      }
+
+      if (text.length < 50) {
+        throw AIAnalysisException('Document text is too short. Please ensure the document contains readable text.');
+      }
+
       final prompt = _buildAnalysisPrompt(text, documentType);
 
       // Use REST API v1beta with gemini-2.5-flash
@@ -145,25 +157,94 @@ class AIAnalysisService {
 
             print('Attempting to parse JSON response...');
             try {
-              return jsonDecode(textResponse);
+              final parsed = jsonDecode(textResponse);
+
+              // Validate the parsed response has required fields
+              if (!_isValidAnalysisResponse(parsed)) {
+                throw FormatException('Response missing required fields');
+              }
+
+              return parsed;
             } catch (e) {
               print('JSON parsing error: $e');
               print('Raw response preview: ${textResponse.substring(0, textResponse.length > 500 ? 500 : textResponse.length)}');
-              return null;
+
+              // Retry on parsing errors
+              if (retryCount < maxRetries) {
+                print('Retrying analysis (attempt ${retryCount + 1}/$maxRetries)...');
+                await Future.delayed(Duration(seconds: 1 + retryCount));
+                return await _callGemini(text, documentType, retryCount: retryCount + 1);
+              }
+
+              throw AIAnalysisException('Failed to parse AI response after $maxRetries retries. Please try again.');
             }
           }
         }
 
         print('Gemini API returned empty response');
-        return null;
+        throw AIAnalysisException('AI returned an empty response. Please try again.');
+      } else if (response.statusCode == 429) {
+        print('Gemini API rate limit: ${response.statusCode}');
+        throw AIAnalysisException('API rate limit exceeded. Please wait a moment and try again.');
+      } else if (response.statusCode >= 500) {
+        print('Gemini API server error: ${response.statusCode}');
+        throw AIAnalysisException('AI service is temporarily unavailable. Please try again later.');
       } else {
         print('Gemini API error: ${response.statusCode}');
         print('Error body: ${response.body}');
-        return null;
+        throw AIAnalysisException('AI analysis failed (Error ${response.statusCode}). Please try again.');
       }
     } catch (e) {
+      if (e is AIAnalysisException) {
+        rethrow;
+      }
       print('Error calling Gemini API: $e');
-      return null;
+      throw AIAnalysisException('Network error. Please check your connection and try again.');
+    }
+  }
+
+  /// Validate that the AI response has all required fields
+  static bool _isValidAnalysisResponse(Map<String, dynamic> response) {
+    try {
+      // Check required top-level fields
+      if (!response.containsKey('documentTitle') ||
+          !response.containsKey('flags') ||
+          !response.containsKey('importantClauses') ||
+          !response.containsKey('riskScore') ||
+          !response.containsKey('summary') ||
+          !response.containsKey('recommendations')) {
+        print('Missing required top-level fields');
+        return false;
+      }
+
+      // Validate flags is a list
+      if (response['flags'] is! List) {
+        print('flags is not a list');
+        return false;
+      }
+
+      // Validate importantClauses is a list
+      if (response['importantClauses'] is! List) {
+        print('importantClauses is not a list');
+        return false;
+      }
+
+      // Validate recommendations is a list
+      if (response['recommendations'] is! List) {
+        print('recommendations is not a list');
+        return false;
+      }
+
+      // Validate riskScore is a number
+      if (response['riskScore'] is! num) {
+        print('riskScore is not a number');
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      print('Validation error: $e');
+      return false;
     }
   }
 
@@ -358,6 +439,15 @@ Remember: Most legitimate business documents are fair and should score 2-4. Only
 class RateLimitException implements Exception {
   final String message;
   RateLimitException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// Exception thrown when AI analysis fails
+class AIAnalysisException implements Exception {
+  final String message;
+  AIAnalysisException(this.message);
 
   @override
   String toString() => message;

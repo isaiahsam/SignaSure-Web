@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../models/document.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
@@ -126,7 +127,98 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     }
   }
 
-  void _viewDocument() {
+  bool _isPdfFile(String filePath) {
+    return filePath.toLowerCase().endsWith('.pdf');
+  }
+
+  bool _isImageFile(String filePath) {
+    final ext = filePath.toLowerCase();
+    return ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png');
+  }
+
+  bool _isTextFile(String filePath) {
+    final ext = filePath.toLowerCase();
+    return ext.endsWith('.txt') || ext.endsWith('.doc') || ext.endsWith('.docx');
+  }
+
+  void _viewDocument() async {
+    final filePath = widget.document.filePath;
+
+    // Check if file exists
+    final file = File(filePath);
+    if (!await file.exists()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Document file not found')),
+      );
+      return;
+    }
+
+    // For text files, show extracted text
+    if (_isTextFile(filePath)) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          child: Column(
+            children: [
+              AppBar(
+                title: const Text('Document Text'),
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    widget.document.extractedText ?? 'No text available',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
+    // For PDF files, use PDF viewer
+    if (_isPdfFile(filePath)) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.black,
+              title: const Text('PDF Document'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            body: SfPdfViewer.file(
+              file,
+              onDocumentLoadFailed: (details) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to load PDF: ${details.error}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // For image files, show in dialog
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -148,7 +240,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                 maxScale: 4.0,
                 child: Center(
                   child: Image.file(
-                    File(widget.document.filePath),
+                    file,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return const Center(
@@ -158,7 +250,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                             Icon(Icons.error, color: Colors.white, size: 48),
                             SizedBox(height: 16),
                             Text(
-                              'Unable to load document image',
+                              'Unable to load document',
                               style: TextStyle(color: Colors.white),
                             ),
                           ],
@@ -255,7 +347,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildInfoRow('File Name:', widget.document.fileName),
+                  _buildInfoRow('Document:', widget.document.analysis?.documentTitle ?? widget.document.customTitle ?? widget.document.fileName),
                   _buildInfoRow('Scan Date:', DateFormat('MMM d, y - h:mm a').format(widget.document.scanDate)),
                   _buildInfoRow('Document Type:', widget.document.type.toString().split('.').last.toUpperCase()),
                   const SizedBox(height: 12),

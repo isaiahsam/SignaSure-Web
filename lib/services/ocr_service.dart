@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class OCRService {
   static final _textRecognizer = TextRecognizer();
@@ -22,6 +23,11 @@ class OCRService {
 
   static Future<String?> extractTextFromFile(File file) async {
     try {
+      // For PDF files, use PDF extraction with OCR
+      if (_isPdfFile(file.path)) {
+        return await extractTextFromPdf(file);
+      }
+
       // For image files, use OCR
       if (_isImageFile(file.path)) {
         return await extractTextFromImage(file.path);
@@ -48,6 +54,37 @@ class OCRService {
   static bool _isTextFile(String filePath) {
     final extension = filePath.toLowerCase().split('.').last;
     return ['txt', 'doc', 'docx'].contains(extension);
+  }
+
+  static bool _isPdfFile(String filePath) {
+    final extension = filePath.toLowerCase().split('.').last;
+    return extension == 'pdf';
+  }
+
+  static Future<String?> extractTextFromPdf(File pdfFile) async {
+    try {
+      // Load the PDF document using Syncfusion
+      final PdfDocument document = PdfDocument(inputBytes: await pdfFile.readAsBytes());
+
+      // Extract text from all pages
+      String combinedText = '';
+      final PdfTextExtractor extractor = PdfTextExtractor(document);
+
+      // Extract text from the entire document
+      String extractedText = extractor.extractText();
+
+      if (extractedText.trim().isNotEmpty) {
+        combinedText = extractedText;
+      }
+
+      // Dispose the document
+      document.dispose();
+
+      return combinedText.trim().isEmpty ? null : combinedText;
+    } catch (e) {
+      print('Error extracting text from PDF: $e');
+      return null;
+    }
   }
 
   static Future<File?> preprocessImage(File imageFile) async {

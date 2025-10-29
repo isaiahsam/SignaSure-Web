@@ -2,8 +2,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
 class RateLimitService {
-  static const int maxPerHour = 3;
-  static const int maxPerDay = 10;
+  static const int maxPerHour = 5;
+  static const int maxPerDay = 20;
 
   /// Get usage key for current user
   static String _getUsageKey() {
@@ -42,7 +42,7 @@ class RateLimitService {
         remaining: 0,
         resetTime: resetTime,
         limitType: 'hourly',
-        message: 'Hourly limit reached (3 per hour). Next analysis available in ${_formatDuration(resetTime.difference(now))}.',
+        message: 'Hourly limit reached ($maxPerHour per hour). Next analysis available in ${_formatDuration(resetTime.difference(now))}.',
       );
     }
 
@@ -56,7 +56,7 @@ class RateLimitService {
         remaining: 0,
         resetTime: resetTime,
         limitType: 'daily',
-        message: 'Daily limit reached (10 per day). Next analysis available in ${_formatDuration(resetTime.difference(now))}.',
+        message: 'Daily limit reached ($maxPerDay per day). Next analysis available in ${_formatDuration(resetTime.difference(now))}.',
       );
     }
 
