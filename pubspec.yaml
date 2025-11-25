@@ -1,5 +1,5 @@
 name: signasure
-description: "SignaSure - AI-powered document analysis app to check for loopholes and unfavorable terms before signing."
+description: "SignaSure - AI-powered document analysis app developed by Looma Labs to check for loopholes and unfavorable terms before signing."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

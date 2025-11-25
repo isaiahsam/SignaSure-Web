@@ -28,7 +28,7 @@ Enter keystore password: MyStr0ngP@ssw0rd123
 Re-enter new password: MyStr0ngP@ssw0rd123
 What is your first and last name? John Doe
 What is the name of your organizational unit? Development
-What is the name of your organization? SignaSure Inc
+What is the name of your organization? Looma Labs
 What is the name of your City or Locality? Manila
 What is the name of your State or Province? NCR
 What is the two-letter country code for this unit? PH

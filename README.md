@@ -290,6 +290,8 @@ The AI analysis is for informational purposes only. Always consult a qualified a
 
 ---
 
+**Developed by Looma Labs**
+
 **Made with ❤️ for safer document signing**
 
 ⭐ Star this repo if you find it helpful!

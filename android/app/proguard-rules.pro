@@ -44,4 +44,4 @@
 -keep class androidx.camera.** { *; }
 
 ## Keep all model classes
--keep class com.example.signasure.models.** { *; }
+-keep class com.loomalabs.signasure.models.** { *; }

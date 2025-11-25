@@ -90,7 +90,7 @@ You may **NOT** use SignaSure to:
 ## Intellectual Property
 
 ### App Ownership
-All rights, title, and interest in SignaSure, including all intellectual property rights, remain with the developers. You are granted a limited, non-exclusive, non-transferable license to use the App for personal, non-commercial purposes.
+All rights, title, and interest in SignaSure, including all intellectual property rights, remain with Looma Labs. You are granted a limited, non-exclusive, non-transferable license to use the App for personal, non-commercial purposes.
 
 ### Your Content
 You retain ownership of any documents or content you upload to the App. By using the App, you grant us a limited license to process your content solely for the purpose of providing the App's functionality.

@@ -1,4 +1,4 @@
-package com.example.signasure
+package com.loomalabs.signasure
 
 import io.flutter.embedding.android.FlutterActivity
 
