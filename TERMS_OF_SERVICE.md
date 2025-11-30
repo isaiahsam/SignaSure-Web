@@ -52,17 +52,43 @@ You agree to:
 
 ## 6. Document Privacy and Security
 
+### IMPORTANT: How Your Document Data is Used
+
+**When you analyze a document:**
+1. **Local Processing**: The document image stays on your device. We use on-device OCR (Google ML Kit) to extract text.
+2. **Sent to Google**: The extracted text is sent to **Google's Gemini AI servers** for analysis.
+3. **Google's Use of Data**: When using the free Gemini API:
+   - **Google may use your document text to improve their AI services**, including training machine learning models
+   - **Google may retain your data** beyond the processing period
+   - **Google employees may review** some content for quality assurance
+   - Your data is subject to [Google's Privacy Policy](https://policies.google.com/privacy)
+
+### What This Means for Your Privacy
+
+⚠️ **IMPORTANT - READ CAREFULLY:**
+- **Your contract text is NOT private from Google** when using this App
+- **Do NOT upload highly confidential, sensitive, or proprietary documents** if you need guaranteed privacy
+- Examples of documents you should NOT upload:
+  - Non-disclosure agreements (NDAs) with strict confidentiality
+  - Contracts with trade secrets or proprietary business information
+  - Documents with personal financial information (SSN, bank accounts)
+  - Medical or health-related contracts (HIPAA-protected)
+  - Attorney-client privileged documents
+
+**By using this App, you consent to sending your document text to Google's servers under these terms.**
+
 ### Your Documents
-- Documents are stored locally on your device
-- We do NOT store your documents on our servers
-- Extracted text is sent to Google Gemini AI for analysis
-- You can delete documents from the App at any time
+- Documents and images are stored **locally on your device only**
+- We do NOT store your documents or images on our servers
+- Extracted text is sent to Google Gemini AI for analysis (as described above)
+- You can delete documents from the App at any time (deletion only affects local storage)
 
 ### Security
+- All data transmission uses HTTPS encryption
+- Google's servers have enterprise-grade security
 - We implement industry-standard security measures
 - However, no system is 100% secure
 - You are responsible for device security (lock screen, encryption, etc.)
-- Do not upload highly sensitive documents without understanding the risks
 
 ## 7. Intellectual Property
 
@@ -192,7 +218,24 @@ For questions about these Terms:
 **Website**: [your-website.com]
 **Address**: [Your business address]
 
-## 19. Updates to Terms
+## 19. Data Sharing with Third Parties
+
+### Google Gemini AI
+- We use Google's Gemini AI service to analyze your documents
+- Your document text is sent to Google's servers
+- **Google may use your data to improve their services** (free tier terms)
+- You can review Google's terms at: [Google AI Terms](https://ai.google.dev/gemini-api/terms)
+
+### Your Consent
+**By using SignaSure's AI analysis features, you explicitly consent to:**
+1. Your extracted document text being sent to Google's servers
+2. Google using this data according to their own privacy policy and terms
+3. The possibility that Google may use your data to train and improve their AI models
+4. The risks described in Section 6 above
+
+**If you do not consent, do not use the AI analysis feature.**
+
+## 20. Updates to Terms
 
 We may update these Terms by:
 - Posting the new version in the App
@@ -209,7 +252,9 @@ Continued use after changes constitutes acceptance.
 1. You have read and understood these Terms
 2. You agree to be bound by these Terms
 3. You understand the App is NOT a substitute for legal advice
-4. You use the App at your own risk
+4. You understand your document text will be sent to Google's servers and may be used by Google to improve their services
+5. You will NOT upload highly confidential or sensitive documents that require guaranteed privacy
+6. You use the App at your own risk and accept all privacy limitations described above
 
 ---
 

@@ -48,12 +48,31 @@ These services have their own privacy policies:
 - [Google Privacy Policy](https://policies.google.com/privacy)
 - [Firebase Privacy](https://firebase.google.com/support/privacy)
 
-### Data Sent to Google Gemini
-When you analyze a document:
-- Extracted text is sent to Google Gemini AI
-- Google may temporarily store this data for processing
-- We do NOT permanently store your documents on our servers
-- You can delete documents from the app at any time
+### Data Sent to Google Gemini AI
+
+⚠️ **CRITICAL PRIVACY NOTICE:**
+
+When you analyze a document, the extracted text is sent to **Google's Gemini AI servers**. Here's what happens:
+
+**What is Sent:**
+- The text extracted from your document (contracts, leases, agreements, etc.)
+- This may include: names, addresses, phone numbers, financial terms, legal clauses, and other contract details
+
+**How Google Uses Your Data (Free Gemini API):**
+- **Google may use your document text to improve their AI services**, including training machine learning models
+- **Google may retain your data** beyond what's needed for immediate processing
+- **Google employees may manually review** some content for quality assurance purposes
+- Your data is governed by [Google's Privacy Policy](https://policies.google.com/privacy) and [Gemini API Terms](https://ai.google.dev/gemini-api/terms)
+
+**What This Means:**
+- ❌ **Your document content is NOT confidential from Google**
+- ❌ **We cannot guarantee your data won't be used to train Google's AI**
+- ❌ **We cannot guarantee how long Google retains your data**
+- ✅ **Your document images stay on your device** - only extracted text is sent
+- ✅ **We do NOT store your documents on our servers**
+- ✅ **You can delete documents from your device at any time**
+
+**Important:** Deleting a document from the app only removes it from your device. We cannot delete data that has already been sent to Google's servers.
 
 ## Data Storage and Security
 
@@ -76,10 +95,16 @@ When you analyze a document:
 ## Your Rights
 
 You have the right to:
-1. **Access**: View all data associated with your account
-2. **Delete**: Remove documents and analysis results anytime
-3. **Export**: Request a copy of your data
-4. **Account Deletion**: Delete your account and all associated data
+1. **Access**: View all data stored locally on your device
+2. **Delete**: Remove documents and analysis results from your device anytime
+3. **Export**: Request a copy of your data (local data only)
+4. **Account Deletion**: Delete your account and all associated data from our systems
+
+**IMPORTANT LIMITATION:**
+- We can only delete data from **your device** and **our systems** (which don't store documents)
+- **We CANNOT delete data that has been sent to Google's servers**
+- Once document text is sent to Google for analysis, it's governed by Google's data retention policies
+- For questions about Google's data handling, see [Google Privacy Policy](https://policies.google.com/privacy)
 
 To exercise these rights, contact us at: [your-email@example.com]
 
@@ -89,16 +114,26 @@ SignaSure is not intended for users under 13 years of age. We do not knowingly c
 
 ## Data Sharing
 
-We do NOT:
-- Sell your personal information
-- Share your documents with third parties
-- Use your documents for training AI models
-- Share data for advertising purposes
+### What We Do NOT Do:
+- ❌ Sell your personal information
+- ❌ Share your documents with third parties for marketing
+- ❌ Use your documents to train our own AI models (we don't have any)
+- ❌ Share data for advertising purposes
+- ❌ Store your documents on our servers
 
-We MAY share data:
-- With Google for AI analysis (as described above)
-- If required by law or legal process
-- To protect our rights and prevent fraud
+### What We DO Share:
+- ✅ **Document text with Google Gemini AI** for analysis (as detailed above)
+  - **Google may use this data to train their AI models**
+  - This is a requirement of using the free Gemini API
+- ✅ Account information with Firebase (Google's authentication service)
+- ✅ Data if required by law or legal process
+- ✅ Data to protect our rights and prevent fraud
+
+### Your Consent
+**By using SignaSure, you consent to:**
+1. Your document text being sent to Google's servers
+2. Google using your data according to their privacy policy
+3. The possibility that your data may be used to improve Google's AI services
 
 ## International Users
 
