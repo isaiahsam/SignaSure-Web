@@ -115,9 +115,10 @@ class AIAnalysisService {
               'recommendations': {
                 'type': 'array',
                 'items': {'type': 'string'}
-              }
+              },
+              'fairnessAssessment': {'type': 'string'}
             },
-            'required': ['documentTitle', 'flags', 'importantClauses', 'riskScore', 'summary', 'recommendations']
+            'required': ['documentTitle', 'flags', 'importantClauses', 'riskScore', 'summary', 'recommendations', 'fairnessAssessment']
           }
         }
       };
@@ -294,7 +295,8 @@ Provide analysis in this JSON format:
   "summary": "Balanced summary focusing on actual issues found",
   "recommendations": [
     "Specific actionable steps about THIS document only (e.g., 'Negotiate X', 'Request clarification on Y', 'Consider adding Z clause')"
-  ]
+  ],
+  "fairnessAssessment": "One of: 'Fair and Balanced' | 'Slightly Favors Other Party' | 'Moderately Unfavorable to You' | 'Heavily Favors Other Party' | 'Potentially Predatory'"
 }
 
 Risk Score Guidelines (BE CONSERVATIVE):
@@ -303,6 +305,21 @@ Risk Score Guidelines (BE CONSERVATIVE):
 - 5-6: Some concerns worth noting, but still reasonable
 - 7-8: Significant issues that need attention
 - 9-10: Severe problems, do not sign without legal review
+
+Fairness Assessment Guidelines:
+Evaluate whether the contract is balanced or favors one party:
+- "Fair and Balanced": Terms are equitable for both parties, standard protections for both sides
+- "Slightly Favors Other Party": Minor advantages for the other party, still acceptable
+- "Moderately Unfavorable to You": Several terms that disadvantage you, renegotiation recommended
+- "Heavily Favors Other Party": Significant imbalance, many one-sided terms, serious concerns
+- "Potentially Predatory": Extremely unfair, appears designed to trap or exploit you
+
+Consider:
+- Do both parties have similar rights/obligations?
+- Are termination clauses equal for both parties?
+- Who bears most risks and liabilities?
+- Are there hidden fees or penalties only for one party?
+- Does one party have excessive control or unilateral rights?
 
 Remember: Most legitimate business documents are fair and should score 2-4. Only raise flags for genuinely problematic terms.
 ''';
@@ -335,6 +352,7 @@ Remember: Most legitimate business documents are fair and should score 2-4. Only
       riskScore: (response['riskScore'] as num?)?.toDouble() ?? 0.0,
       summary: response['summary'] ?? '',
       recommendations: List<String>.from(response['recommendations'] ?? []),
+      fairnessAssessment: response['fairnessAssessment'],
     );
   }
 

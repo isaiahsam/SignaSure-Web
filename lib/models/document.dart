@@ -73,6 +73,7 @@ class DocumentAnalysis {
   final double riskScore;
   final String summary;
   final List<String> recommendations;
+  final String? fairnessAssessment;  // "Fair and Balanced", "Slightly Unfavorable", etc.
 
   DocumentAnalysis({
     this.documentTitle,
@@ -81,7 +82,41 @@ class DocumentAnalysis {
     required this.riskScore,
     required this.summary,
     required this.recommendations,
+    this.fairnessAssessment,
   });
+
+  /// Get sorted flags by priority (highest priority first)
+  List<AnalysisFlag> get flagsByPriority {
+    final sortedFlags = List<AnalysisFlag>.from(flags);
+    sortedFlags.sort((a, b) => b.priorityScore.compareTo(a.priorityScore));
+    return sortedFlags;
+  }
+
+  /// Get count of flags by severity
+  Map<FlagSeverity, int> get flagCountBySeverity {
+    final counts = <FlagSeverity, int>{
+      FlagSeverity.critical: 0,
+      FlagSeverity.high: 0,
+      FlagSeverity.medium: 0,
+      FlagSeverity.low: 0,
+    };
+    for (var flag in flags) {
+      counts[flag.severity] = (counts[flag.severity] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// Get count of critical priority flags (P1)
+  int get criticalPriorityCount => flags.where((f) => f.priorityScore >= 100).length;
+
+  /// Get count of high priority flags (P2)
+  int get highPriorityCount => flags.where((f) => f.priorityScore >= 70 && f.priorityScore < 100).length;
+
+  /// Get count of medium priority flags (P3)
+  int get mediumPriorityCount => flags.where((f) => f.priorityScore >= 40 && f.priorityScore < 70).length;
+
+  /// Get count of low priority flags (P4)
+  int get lowPriorityCount => flags.where((f) => f.priorityScore < 40).length;
 
   Map<String, dynamic> toJson() {
     return {
@@ -91,6 +126,7 @@ class DocumentAnalysis {
       'riskScore': riskScore,
       'summary': summary,
       'recommendations': recommendations,
+      'fairnessAssessment': fairnessAssessment,
     };
   }
 
@@ -106,6 +142,7 @@ class DocumentAnalysis {
       riskScore: json['riskScore'].toDouble(),
       summary: json['summary'],
       recommendations: List<String>.from(json['recommendations']),
+      fairnessAssessment: json['fairnessAssessment'],
     );
   }
 }
@@ -124,6 +161,48 @@ class AnalysisFlag {
     required this.severity,
     required this.highlightedText,
   });
+
+  /// Get priority score for ranking (higher = more urgent)
+  /// Critical: 100-120, High: 70-99, Medium: 40-69, Low: 0-39
+  int get priorityScore {
+    // Base score from severity
+    int baseScore = switch (severity) {
+      FlagSeverity.critical => 100,
+      FlagSeverity.high => 70,
+      FlagSeverity.medium => 40,
+      FlagSeverity.low => 10,
+    };
+
+    // Add weight based on flag type (some types are inherently more serious)
+    int typeBonus = switch (type) {
+      FlagType.hiddenFee => 15,          // Financial impact - high priority
+      FlagType.loophole => 15,            // Could be exploited - high priority
+      FlagType.penaltyClause => 12,       // Financial penalties - high priority
+      FlagType.unfavorableTerm => 10,     // Disadvantageous - medium-high priority
+      FlagType.limitedLiability => 8,     // Legal protection issue - medium priority
+      FlagType.automaticRenewal => 7,     // Could trap you - medium priority
+      FlagType.missingClause => 5,        // Lack of protection - lower priority
+      FlagType.other => 0,                // Unknown - no bonus
+    };
+
+    return baseScore + typeBonus;
+  }
+
+  /// Get action label based on priority
+  String get actionLabel {
+    if (priorityScore >= 100) return 'ADDRESS IMMEDIATELY';
+    if (priorityScore >= 80) return 'DISCUSS WITH LAWYER';
+    if (priorityScore >= 50) return 'NEGOTIATE THIS';
+    return 'BE AWARE';
+  }
+
+  /// Get priority rank label (for display)
+  String get priorityRank {
+    if (priorityScore >= 100) return 'P1 - CRITICAL';
+    if (priorityScore >= 70) return 'P2 - HIGH';
+    if (priorityScore >= 40) return 'P3 - MEDIUM';
+    return 'P4 - LOW';
+  }
 
   Map<String, dynamic> toJson() {
     return {
