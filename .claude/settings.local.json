@@ -24,7 +24,8 @@
       "Bash(adb kill-server:*)",
       "Bash(adb start-server:*)",
       "Bash(cat:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(del:*)"
     ],
     "deny": [],
     "ask": []
