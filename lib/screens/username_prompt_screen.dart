@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/theme_provider.dart';
-import 'main_screen.dart';
+import 'demographic_survey_screen.dart';
 
 class UsernamePromptScreen extends StatefulWidget {
   const UsernamePromptScreen({super.key});
@@ -36,7 +36,7 @@ class _UsernamePromptScreenState extends State<UsernamePromptScreen> {
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
+        MaterialPageRoute(builder: (context) => const DemographicSurveyScreen()),
       );
     }
   }

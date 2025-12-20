@@ -472,30 +472,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             )
           else
-            Column(
-              children: [
-                ..._recentDocuments.map((doc) => _buildHistoryItem(context, doc)),
-                if (_isLoadingMore)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else if (!_hasMoreDocuments && _recentDocuments.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: Text(
-                        'No more documents',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _recentDocuments.length + (_isLoadingMore ? 1 : (_hasMoreDocuments ? 0 : 1)),
+              itemBuilder: (context, index) {
+                if (index == _recentDocuments.length) {
+                  if (_isLoadingMore) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  } else if (!_hasMoreDocuments) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          'No more documents',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                    );
+                  }
+                }
+                return _buildHistoryItem(context, _recentDocuments[index]);
+              },
             ),
         ],
       ),
@@ -506,89 +512,86 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDark = themeProvider.isDarkMode;
 
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                AnalysisResultScreen(document: document),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.95, end: 1.0).animate(
-                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                  ),
-                  child: child,
-                ),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            // Document thumbnail/icon
-            Container(
-              width: 65,
-              height: 85,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? [const Color(0xFF2A2A2A), const Color(0xFF252525)]
-                      : [Colors.white, Colors.grey[100]!],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
-                  width: 1.5,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.description,
-                    size: 28,
-                    color: isDark
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF2563EB),
-                  ),
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(
-                      'DOC',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+    return RepaintBoundary(
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  AnalysisResultScreen(document: document),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                      CurvedAnimation(parent: animation, curve: Curves.easeOut),
                     ),
+                    child: child,
                   ),
-                ],
-              ),
+                );
+              },
+              transitionDuration: const Duration(milliseconds: 300),
             ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE5E5E5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              // Document thumbnail/icon
+              RepaintBoundary(
+              child: Container(
+                width: 65,
+                height: 85,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? Colors.grey[800]! : Colors.grey[300]!,
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.description,
+                      size: 28,
+                      color: isDark
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF2563EB),
+                    ),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(
+                        'DOC',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                ),
+              ),
 
-            const SizedBox(width: 14),
+              const SizedBox(width: 14),
 
-            // Document details
-            Expanded(
+              // Document details
+              Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -634,13 +637,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
+                ),
               ),
-            ),
 
-            const SizedBox(width: 8),
+              const SizedBox(width: 8),
 
-            // Actions
-            Column(
+              // Actions
+              Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
@@ -691,10 +694,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   iconSize: 20,
                   padding: const EdgeInsets.all(6),
                   constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

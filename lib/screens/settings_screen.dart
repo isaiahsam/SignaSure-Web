@@ -156,23 +156,6 @@ class SettingsScreen extends StatelessWidget {
                       isDark: isDark,
                       onTap: null, // Cannot edit email
                     ),
-                    const SizedBox(height: 12),
-                    _buildProfileTile(
-                      context,
-                      icon: Icons.phone_outlined,
-                      label: 'Phone Number',
-                      value: userProvider.phoneNumber.isEmpty
-                          ? 'Not set'
-                          : userProvider.phoneNumber,
-                      isDark: isDark,
-                      onTap: () => _showEditDialog(
-                        context,
-                        title: 'Edit Phone Number',
-                        currentValue: userProvider.phoneNumber,
-                        keyboardType: TextInputType.phone,
-                        onSave: (value) => userProvider.updatePhoneNumber(value),
-                      ),
-                    ),
                   ],
                 ),
 

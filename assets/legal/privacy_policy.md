@@ -90,8 +90,7 @@ The AI analysis provided by SignaSure:
 ## Contact Us
 
 If you have any questions about this Privacy Policy or our data practices, please contact us at:
-- Email: [Your Contact Email]
-- GitHub: https://github.com/[your-repo]/SignaSure
+- Email: contact.loomalabs@gmail.com
 
 ## Consent
 

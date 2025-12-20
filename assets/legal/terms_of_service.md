@@ -164,8 +164,7 @@ These Terms, together with our Privacy Policy, constitute the entire agreement b
 ## Contact Information
 
 If you have any questions about these Terms, please contact us at:
-- Email: [Your Contact Email]
-- GitHub: https://github.com/[your-repo]/SignaSure
+- Email: contact.loomalabs@gmail.com
 
 ## Acknowledgment
 

@@ -276,8 +276,7 @@ The AI analysis is for informational purposes only. Always consult a qualified a
 
 ## 📧 Support
 
-- **Issues**: Open a GitHub issue
-- **Email**: [your-email@example.com]
+- **Email**: contact.loomalabs@gmail.com
 - **Docs**: Check the `/docs` folder
 
 ## 🙏 Acknowledgments

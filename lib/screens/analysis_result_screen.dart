@@ -106,6 +106,49 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     }
   }
 
+  Color _getPriorityColor(int priorityScore) {
+    if (priorityScore >= 100) return Colors.red[900]!; // Critical
+    if (priorityScore >= 70) return Colors.red; // High
+    if (priorityScore >= 40) return Colors.orange; // Medium
+    return Colors.blue; // Low
+  }
+
+  Widget _buildPriorityLegend(DocumentAnalysis analysis) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        if (analysis.criticalPriorityCount > 0)
+          _buildPriorityChip('P1: ${analysis.criticalPriorityCount}', Colors.red[900]!),
+        if (analysis.highPriorityCount > 0)
+          _buildPriorityChip('P2: ${analysis.highPriorityCount}', Colors.red),
+        if (analysis.mediumPriorityCount > 0)
+          _buildPriorityChip('P3: ${analysis.mediumPriorityCount}', Colors.orange),
+        if (analysis.lowPriorityCount > 0)
+          _buildPriorityChip('P4: ${analysis.lowPriorityCount}', Colors.blue),
+      ],
+    );
+  }
+
+  Widget _buildPriorityChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color, width: 1),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   String _getFlagTypeDisplayName(FlagType type) {
     switch (type) {
       case FlagType.hiddenFee:
@@ -641,7 +684,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   }
 
   Widget _buildFlagsTab() {
-    final flags = widget.document.analysis?.flags ?? [];
+    final analysis = widget.document.analysis;
+    if (analysis == null) {
+      return const Center(child: Text('No analysis available'));
+    }
+
+    // Sort flags by priority (critical first, then high, medium, low)
+    final flags = analysis.flagsByPriority;
 
     if (flags.isEmpty) {
       return const Center(
@@ -683,20 +732,27 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.red[200]!),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, color: Colors.red[700], size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Flags are potential issues or concerning terms that may pose risks',
-                  style: TextStyle(
-                    color: Colors.red[900],
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+              Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.red[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Flags sorted by priority - Critical first',
+                      style: TextStyle(
+                        color: Colors.red[900],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+              const SizedBox(height: 8),
+              _buildPriorityLegend(analysis),
             ],
           ),
         ),
@@ -706,18 +762,69 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
             itemCount: flags.length,
             itemBuilder: (context, index) {
               final flag = flags[index];
+              final priorityColor = _getPriorityColor(flag.priorityScore);
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ExpansionTile(
-                  leading: Icon(
-                    _getSeverityIcon(flag.severity),
-                    color: _getSeverityColor(flag.severity),
+                  leading: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getSeverityIcon(flag.severity),
+                        color: _getSeverityColor(flag.severity),
+                        size: 24,
+                      ),
+                    ],
                   ),
-                  title: Text(
-                    flag.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          flag.title,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: priorityColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: priorityColor, width: 1.5),
+                        ),
+                        child: Text(
+                          flag.priorityRank,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: priorityColor,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  subtitle: Text(_getFlagTypeDisplayName(flag.type)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_getFlagTypeDisplayName(flag.type)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: priorityColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          flag.actionLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: priorityColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(16),
@@ -762,7 +869,14 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   }
 
   Widget _buildClausesTab() {
-    final clauses = widget.document.analysis?.importantClauses ?? [];
+    final analysis = widget.document.analysis;
+    if (analysis == null) {
+      return const Center(child: Text('No analysis available'));
+    }
+
+    // Sort clauses by importance (critical first, then high, medium, low)
+    final clauses = List<ImportantClause>.from(analysis.importantClauses);
+    clauses.sort((a, b) => b.importance.index.compareTo(a.importance.index));
 
     if (clauses.isEmpty) {
       return const Center(
@@ -804,7 +918,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Clauses are important terms you should understand, explained in plain English',
+                  'Clauses sorted by importance - Critical first',
                   style: TextStyle(
                     color: Colors.blue[900],
                     fontSize: 13,

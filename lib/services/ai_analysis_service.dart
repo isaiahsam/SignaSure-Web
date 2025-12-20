@@ -44,9 +44,7 @@ class AIAnalysisService {
   static Future<Map<String, dynamic>?> _callGemini(
     String text,
     DocumentType documentType,
-    {int retryCount = 0}
   ) async {
-    const maxRetries = 2;
 
     try {
       // Validate input text
@@ -162,22 +160,15 @@ class AIAnalysisService {
 
               // Validate the parsed response has required fields
               if (!_isValidAnalysisResponse(parsed)) {
-                throw FormatException('Response missing required fields');
+                print('Warning: Response missing some fields, using partial data');
+                // Don't throw error, just use what we have
               }
 
               return parsed;
             } catch (e) {
               print('JSON parsing error: $e');
               print('Raw response preview: ${textResponse.substring(0, textResponse.length > 500 ? 500 : textResponse.length)}');
-
-              // Retry on parsing errors
-              if (retryCount < maxRetries) {
-                print('Retrying analysis (attempt ${retryCount + 1}/$maxRetries)...');
-                await Future.delayed(Duration(seconds: 1 + retryCount));
-                return await _callGemini(text, documentType, retryCount: retryCount + 1);
-              }
-
-              throw AIAnalysisException('Failed to parse AI response after $maxRetries retries. Please try again.');
+              throw AIAnalysisException('Failed to parse AI response. Please try again.');
             }
           }
         }

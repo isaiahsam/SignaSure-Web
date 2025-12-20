@@ -25,7 +25,9 @@
       "Bash(adb start-server:*)",
       "Bash(cat:*)",
       "Bash(git check-ignore:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

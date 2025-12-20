@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/user_provider.dart';
 import '../services/preferences_service.dart';
-import 'main_screen.dart';
+import '../services/auth_service.dart';
+import 'demographic_survey_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -120,13 +122,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _completeOnboarding() async {
-    await PreferencesService.setOnboardingCompleted(true);
+    final userId = AuthService().currentUser?.uid;
+    final user = AuthService().currentUser;
+
+    await PreferencesService.setOnboardingCompleted(true, userId: userId);
+
     if (mounted) {
-      // Navigate with fade transition animation
+      // Set username from Google account
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      if (user != null && user.displayName != null) {
+        final firstName = user.displayName!.split(' ').first;
+        await userProvider.updateUserName(firstName);
+      }
+
+      // Navigate to demographic survey screen
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const MainScreen(),
+          pageBuilder: (context, animation, secondaryAnimation) => const DemographicSurveyScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
               opacity: animation,
@@ -140,13 +153,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _skipOnboarding() async {
-    await PreferencesService.setOnboardingCompleted(true);
+    final userId = AuthService().currentUser?.uid;
+    final user = AuthService().currentUser;
+
+    await PreferencesService.setOnboardingCompleted(true, userId: userId);
+
     if (mounted) {
-      // Navigate with fade transition animation
+      // Set username from Google account
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      if (user != null && user.displayName != null) {
+        final firstName = user.displayName!.split(' ').first;
+        await userProvider.updateUserName(firstName);
+      }
+
+      // Navigate to demographic survey screen
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const MainScreen(),
+          pageBuilder: (context, animation, secondaryAnimation) => const DemographicSurveyScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
               opacity: animation,

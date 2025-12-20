@@ -4,6 +4,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../services/auth_service.dart';
 import '../services/preferences_service.dart';
 import '../providers/theme_provider.dart';
+import '../providers/user_provider.dart';
 import 'onboarding_screen.dart';
 import 'main_screen.dart';
 
@@ -107,12 +108,27 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
       final userCredential = await _authService.signInWithGoogle();
 
       if (userCredential != null && userCredential.user != null) {
-        // Check if user has completed onboarding
-        final hasCompletedOnboarding = await PreferencesService.hasCompletedOnboarding();
+        final userId = userCredential.user!.uid;
+        final displayName = userCredential.user!.displayName ?? 'User';
+
+        // Get first name from display name
+        final firstName = displayName.split(' ').first;
+
+        // Check if THIS specific user has completed onboarding
+        final hasCompletedOnboarding = await PreferencesService.hasCompletedOnboarding(userId: userId);
 
         if (mounted) {
+          // Load user data into provider
+          final userProvider = Provider.of<UserProvider>(context, listen: false);
+          await userProvider.loadUserData(userId);
+
+          // Set username from Google account if not already set
+          if (userProvider.userName == 'User' || userProvider.userName.isEmpty) {
+            await userProvider.updateUserName(firstName);
+          }
+
           if (hasCompletedOnboarding) {
-            // Show animation and go directly to main screen
+            // Existing user - go directly to main screen
             Navigator.pushReplacement(
               context,
               PageRouteBuilder(
@@ -133,7 +149,7 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
               ),
             );
           } else {
-            // First time user - show onboarding tutorial
+            // New user or deleted user - show onboarding tutorial
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const OnboardingScreen()),
