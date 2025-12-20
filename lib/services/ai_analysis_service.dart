@@ -260,6 +260,7 @@ CRITICAL INSTRUCTIONS:
 5. DO NOT flag standard legal boilerplate as problematic (e.g., normal liability clauses, standard warranties, typical termination terms)
 6. Recommendations should ONLY be about specific actionable items in THIS document
 7. If the document is generally fair and standard, reflect that in your analysis - don't manufacture problems
+8. USE SIMPLE LANGUAGE: Write flag titles like you're explaining to a 10-year-old. No legal jargon, no fancy words. Use everyday language that anyone can understand.
 
 Provide analysis in this JSON format:
 
@@ -268,7 +269,7 @@ Provide analysis in this JSON format:
   "flags": [
     {
       "type": "hiddenFee|unfavorableTerm|missingClause|loophole|automaticRenewal|penaltyClause|limitedLiability|other",
-      "title": "Brief title of the issue",
+      "title": "VERY SIMPLE title using everyday words a 10-year-old would understand (e.g., 'Hidden Extra Fees', 'You Can't Cancel Easily', 'They Can Change Terms Anytime', 'You Pay If You're Late', 'Hard to Get Your Money Back'). NO legal jargon or complex words.",
       "description": "Detailed explanation of why this specific term is problematic",
       "severity": "low|medium|high|critical",
       "highlightedText": "The exact text from the document that contains the issue"

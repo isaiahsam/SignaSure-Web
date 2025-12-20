@@ -725,31 +725,78 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.red[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.red[200]!),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red[300]!, width: 2),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.red[700], size: 20),
-                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.flag, color: Colors.red[700], size: 24),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'Flags sorted by priority - Critical first',
-                      style: TextStyle(
-                        color: Colors.red[900],
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'What are Flags?',
+                          style: TextStyle(
+                            color: Colors.red[900],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Warning signs of problems in the contract',
+                          style: TextStyle(
+                            color: Colors.red[700],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Text(
+                  'Flags are problems we found that could hurt you. They include hidden fees, unfair terms, and tricky clauses. The worst problems are marked as "Critical" (P1) and should be fixed first.',
+                  style: TextStyle(
+                    color: Colors.grey[800],
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Sorted by priority - Most important first:',
+                style: TextStyle(
+                  color: Colors.red[800],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               _buildPriorityLegend(analysis),
@@ -905,25 +952,77 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.blue[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue[200]!),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue[300]!, width: 2),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Clauses sorted by importance - Critical first',
-                  style: TextStyle(
-                    color: Colors.blue[900],
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.description, color: Colors.blue[700], size: 24),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'What are Important Clauses?',
+                          style: TextStyle(
+                            color: Colors.blue[900],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Key parts you should understand',
+                          style: TextStyle(
+                            color: Colors.blue[700],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Text(
+                  'Clauses are important rules in the contract written in plain English. We explain what each rule means so you can understand what you\'re agreeing to without legal jargon.',
+                  style: TextStyle(
+                    color: Colors.grey[800],
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Sorted by importance - Most important first',
+                style: TextStyle(
+                  color: Colors.blue[800],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
