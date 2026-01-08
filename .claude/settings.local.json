@@ -27,7 +27,12 @@
       "Bash(git check-ignore:*)",
       "Bash(del:*)",
       "Bash(dir:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "WebSearch",
+      "Bash(mkdir:*)",
+      "WebFetch(domain:fonts.google.com)",
+      "Bash(curl:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

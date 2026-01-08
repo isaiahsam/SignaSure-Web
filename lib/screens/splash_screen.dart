@@ -210,27 +210,26 @@ class _SplashScreenState extends State<SplashScreen>
                           child: Transform.scale(
                             scale: _logoScaleAnimation.value *
                                 _pulseAnimation.value,
-                            child: Container(
-                              width: 120,
-                              height: 120,
-                              decoration: BoxDecoration(
+                            child: Text(
+                              'SIGNASURE',
+                              style: TextStyle(
+                                fontFamily: 'MuseoModerno',
+                                fontSize: 56,
+                                fontWeight: FontWeight.w800,
                                 color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF2563EB).withOpacity(
-                                        0.3 * _logoOpacityAnimation.value),
-                                    blurRadius: 40,
-                                    spreadRadius: 10,
+                                letterSpacing: -4,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black.withOpacity(0.4),
+                                    offset: const Offset(4, 4),
+                                    blurRadius: 12,
+                                  ),
+                                  Shadow(
+                                    color: const Color(0xFF2563EB).withOpacity(0.3),
+                                    offset: const Offset(6, 6),
+                                    blurRadius: 20,
                                   ),
                                 ],
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  Icons.verified_user_rounded,
-                                  size: 60,
-                                  color: const Color(0xFF2563EB),
-                                ),
                               ),
                             ),
                           ),
@@ -239,30 +238,13 @@ class _SplashScreenState extends State<SplashScreen>
 
                       const SizedBox(height: 40),
 
-                      // App name with slide animation
+                      // App tagline with slide animation
                       SlideTransition(
                         position: _textSlideAnimation,
                         child: Opacity(
                           opacity: _textOpacityAnimation.value,
                           child: Column(
                             children: [
-                              ShaderMask(
-                                shaderCallback: (bounds) => LinearGradient(
-                                  colors: [
-                                    const Color(0xFF2563EB),
-                                    const Color(0xFF1E40AF),
-                                  ],
-                                ).createShader(bounds),
-                                child: const Text(
-                                  'SignaSure',
-                                  style: TextStyle(
-                                    fontSize: 48,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: -1,
-                                  ),
-                                ),
-                              ),
                               const SizedBox(height: 8),
                               Text(
                                 'Sign Smart, Stay Protected',

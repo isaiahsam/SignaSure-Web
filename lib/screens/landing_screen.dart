@@ -257,16 +257,32 @@ class _LandingScreenState extends State<LandingScreen> with TickerProviderStateM
                   scale: _logoScaleAnimation,
                   child: Column(
                     children: [
-                      // Logo Image with Hero
+                      // Logo with "SIGNASURE" text
                       Hero(
                         tag: 'app_logo',
                         child: Material(
                           color: Colors.transparent,
-                          child: Image.asset(
-                            isDark ? 'assets/images/logo_blue.png' : 'assets/images/logo_blue.png',
-                            width: screenWidth * 0.6,
-                            height: screenWidth * 0.2,
-                            fit: BoxFit.contain,
+                          child: Text(
+                            'SIGNASURE',
+                            style: TextStyle(
+                              fontFamily: 'MuseoModerno',
+                              fontSize: screenWidth * 0.12,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF2563EB),
+                              letterSpacing: -4,
+                              shadows: [
+                                Shadow(
+                                  color: const Color(0xFF2563EB).withOpacity(0.3),
+                                  offset: const Offset(4, 4),
+                                  blurRadius: 12,
+                                ),
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.15),
+                                  offset: const Offset(6, 6),
+                                  blurRadius: 20,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

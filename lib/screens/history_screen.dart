@@ -209,12 +209,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'SignaSure',
+                    'SIGNASURE',
                     style: TextStyle(
+                      fontFamily: 'MuseoModerno',
                       fontSize: 32,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                       color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
-                      letterSpacing: -0.5,
+                      letterSpacing: -2,
+                      shadows: [
+                        Shadow(
+                          color: (isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB)).withOpacity(0.3),
+                          offset: const Offset(2, 2),
+                          blurRadius: 6,
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(

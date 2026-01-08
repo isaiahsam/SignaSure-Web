@@ -358,21 +358,8 @@ class _LegalDocumentContent extends StatelessWidget {
             ),
           ),
         ));
-      } else if (line.startsWith('**') && line.endsWith('**')) {
-        // Bold text
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            line.replaceAll('**', ''),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-        ));
       } else if (line.startsWith('- ')) {
-        // List item
+        // List item with inline bold support
         widgets.add(Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 6),
           child: Row(
@@ -389,30 +376,16 @@ class _LegalDocumentContent extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  line.substring(2),
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: isDark ? Colors.grey[300] : Colors.black87,
-                  ),
-                ),
+                child: _buildRichText(line.substring(2)),
               ),
             ],
           ),
         ));
       } else {
-        // Regular paragraph
+        // Regular paragraph or bold text with inline markdown support
         widgets.add(Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Text(
-            line,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.6,
-              color: isDark ? Colors.grey[300] : Colors.black87,
-            ),
-          ),
+          child: _buildRichText(line),
         ));
       }
     }
@@ -420,6 +393,73 @@ class _LegalDocumentContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: widgets,
+    );
+  }
+
+  Widget _buildRichText(String text) {
+    // Parse inline markdown for bold text
+    final boldPattern = RegExp(r'\*\*(.*?)\*\*');
+    final matches = boldPattern.allMatches(text);
+
+    if (matches.isEmpty) {
+      // No bold text, return regular text
+      return Text(
+        text,
+        style: TextStyle(
+          fontSize: 14,
+          height: 1.6,
+          color: isDark ? Colors.grey[300] : Colors.black87,
+        ),
+      );
+    }
+
+    // Build TextSpan with bold sections
+    final spans = <TextSpan>[];
+    int lastIndex = 0;
+
+    for (final match in matches) {
+      // Add regular text before the bold section
+      if (match.start > lastIndex) {
+        spans.add(TextSpan(
+          text: text.substring(lastIndex, match.start),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.normal,
+            color: isDark ? Colors.grey[300] : Colors.black87,
+          ),
+        ));
+      }
+
+      // Add bold section
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: isDark ? Colors.white : Colors.black,
+        ),
+      ));
+
+      lastIndex = match.end;
+    }
+
+    // Add remaining text after last bold section
+    if (lastIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastIndex),
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.normal,
+          color: isDark ? Colors.grey[300] : Colors.black87,
+        ),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(
+        children: spans,
+        style: const TextStyle(height: 1.6),
+      ),
     );
   }
 
