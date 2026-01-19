@@ -42,7 +42,12 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" repo create SignaSure-Web --public --description \"AI-powered legal document analyzer web app - Next.js\" --source=. --remote=origin --push)",
       "Bash(git remote:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nMigrate SignaSure to Next.js web app\n\n- Convert Flutter mobile app to Next.js 14 web application\n- Firebase Auth with Google Sign-In\n- Firestore for document storage\n- Google Gemini 1.5 Flash for AI analysis\n- Tesseract.js for browser-based OCR\n- Tailwind CSS styling with dark mode\n- Smooth animations throughout the app\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push -u origin Website:main)",
+      "Bash(tree:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
