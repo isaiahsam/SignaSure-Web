@@ -41,25 +41,45 @@ export class GeminiClient {
       },
     };
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (fetchError) {
+      console.error('Network error calling Gemini API:', fetchError);
+      throw new Error('Network error: Unable to connect to AI service. Please check your internet connection.');
+    }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
+      let errorText = '';
+      let errorJson: { error?: { message?: string; status?: string } } | null = null;
+      try {
+        errorText = await response.text();
+        errorJson = JSON.parse(errorText);
+      } catch {
+        // Failed to parse error response
+      }
+
+      const errorMessage = errorJson?.error?.message || errorText;
+      console.error('Gemini API error:', response.status, errorMessage);
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('AI service authentication failed. Please check the API key configuration.');
+      }
       if (response.status === 429) {
         throw new Error('API rate limit exceeded. Please wait a moment and try again.');
       }
       if (response.status === 400) {
-        throw new Error('Invalid request to AI service. Please try a different document.');
+        console.error('Bad request details:', errorMessage);
+        throw new Error(`Invalid request to AI service: ${errorMessage.substring(0, 100)}`);
       }
       if (response.status >= 500) {
         throw new Error('AI service is temporarily unavailable. Please try again later.');
       }
-      throw new Error(`AI analysis failed (Error ${response.status}). Please try again.`);
+      throw new Error(`AI analysis failed (Error ${response.status}): ${errorMessage.substring(0, 100)}`);
     }
 
     const responseData = await response.json();
