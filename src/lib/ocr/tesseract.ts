@@ -1,129 +1,100 @@
 'use client';
 
-import { createWorker } from 'tesseract.js';
-import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
 
-// Set up PDF.js worker from CDN
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-}
-
-export async function extractTextFromImage(imageData: string | Blob | File): Promise<string> {
+export async function extractTextFromImage(imageFile: File): Promise<string> {
   try {
-    const worker = await createWorker('eng');
-    const result = await worker.recognize(imageData);
-    await worker.terminate();
-    return result.data.text;
+    const result = await Tesseract.recognize(imageFile, 'eng', {
+      logger: (m) => {
+        if (m.status === 'recognizing text') {
+          console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+        }
+      },
+    });
+
+    return result.data.text.trim();
   } catch (error) {
-    console.error('OCR error:', error);
-    throw new Error('Failed to extract text from image. Please try again.');
+    console.error('Error extracting text from image:', error);
+    throw new Error('Failed to extract text from image');
   }
 }
 
-export async function extractTextFromPDF(pdfData: ArrayBuffer): Promise<string> {
+export async function extractTextFromPDF(pdfFile: File): Promise<string> {
   try {
-    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
-    const pdf = await loadingTask.promise;
-    const numPages = pdf.numPages;
-    const textParts: string[] = [];
+    const pdfjsLib = await import('pdfjs-dist');
 
-    for (let i = 1; i <= numPages; i++) {
+    // Set worker source
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let fullText = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items
-        .map((item: any) => ('str' in item ? item.str : ''))
+        .map((item) => ('str' in item ? item.str : ''))
         .join(' ');
-      textParts.push(pageText);
+      fullText += pageText + '\n';
     }
 
-    const extractedText = textParts.join('\n\n');
-
-    // If PDF text extraction yields little text, it might be a scanned PDF
-    if (extractedText.trim().length < 50) {
-      console.log('PDF appears to be scanned, using OCR...');
-      return await extractTextFromScannedPDF(pdf);
-    }
-
-    return extractedText;
+    return fullText.trim();
   } catch (error) {
-    console.error('PDF extraction error:', error);
-    // Fallback: try treating as image-based PDF
-    throw new Error('Failed to extract text from PDF. Please try again or upload an image.');
+    console.error('Error extracting text from PDF:', error);
+    throw new Error('Failed to extract text from PDF');
   }
 }
 
-async function extractTextFromScannedPDF(pdf: any): Promise<string> {
-  const numPages = pdf.numPages;
-  const textParts: string[] = [];
-  const scale = 2.0;
+export async function extractTextFromScannedPDF(
+  pdfFile: File,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  try {
+    const pdfjsLib = await import('pdfjs-dist');
 
-  for (let i = 1; i <= Math.min(numPages, 5); i++) {
-    try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let fullText = '';
+    const totalPages = pdf.numPages;
+
+    for (let i = 1; i <= totalPages; i++) {
       const page = await pdf.getPage(i);
+      const scale = 2.0;
       const viewport = page.getViewport({ scale });
 
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      if (!context) continue;
 
-      canvas.height = viewport.height;
+      if (!context) {
+        throw new Error('Failed to get canvas context');
+      }
+
       canvas.width = viewport.width;
+      canvas.height = viewport.height;
 
       await page.render({
         canvasContext: context,
         viewport: viewport,
       }).promise;
 
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((b) => {
-          if (b) resolve(b);
-          else reject(new Error('Failed to convert canvas to blob'));
-        }, 'image/png');
-      });
+      const imageData = canvas.toDataURL('image/png');
 
-      const pageText = await extractTextFromImage(blob);
-      textParts.push(pageText);
-    } catch (pageError) {
-      console.error(`Error processing page ${i}:`, pageError);
+      const result = await Tesseract.recognize(imageData, 'eng');
+      fullText += result.data.text + '\n';
+
+      if (onProgress) {
+        onProgress((i / totalPages) * 100);
+      }
     }
+
+    return fullText.trim();
+  } catch (error) {
+    console.error('Error extracting text from scanned PDF:', error);
+    throw new Error('Failed to extract text from scanned PDF');
   }
-
-  if (textParts.length === 0) {
-    throw new Error('Could not extract text from any pages');
-  }
-
-  return textParts.join('\n\n');
-}
-
-export function getFileType(file: File): 'pdf' | 'image' | 'unknown' {
-  const mimeType = file.type.toLowerCase();
-
-  if (mimeType === 'application/pdf') {
-    return 'pdf';
-  }
-
-  if (mimeType.startsWith('image/')) {
-    return 'image';
-  }
-
-  const ext = file.name.toLowerCase().split('.').pop();
-  if (ext === 'pdf') return 'pdf';
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext || '')) return 'image';
-
-  return 'unknown';
-}
-
-export async function extractTextFromFile(file: File): Promise<string> {
-  const fileType = getFileType(file);
-
-  if (fileType === 'pdf') {
-    const arrayBuffer = await file.arrayBuffer();
-    return extractTextFromPDF(arrayBuffer);
-  }
-
-  if (fileType === 'image') {
-    return extractTextFromImage(file);
-  }
-
-  throw new Error('Unsupported file type. Please upload a PDF or image file.');
 }

@@ -1,22 +1,22 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { Header } from '@/components/layout';
-import { Sidebar, MobileNav } from '@/components/layout';
-import { AuthGuard } from '@/components/auth';
+import { AuthGuard } from '@/components/auth/auth-guard';
+import { Header } from '@/components/layout/header';
+import { Sidebar } from '@/components/layout/sidebar';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
         <Header />
         <Sidebar />
-        <main className="pb-20 lg:ml-64 lg:pb-8">
-          <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-            {children}
-          </div>
+        <main className="lg:pl-64 pb-16 lg:pb-0">
+          <div className="p-4 md:p-6 lg:p-8">{children}</div>
         </main>
-        <MobileNav />
       </div>
     </AuthGuard>
   );

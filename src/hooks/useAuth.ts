@@ -1,50 +1,31 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useAuthStore } from '@/stores';
-import { onAuthChange, signInWithGoogle, signOut, getCurrentUser } from '@/lib/firebase';
+import { useAuthStore } from '@/stores/auth-store';
 
 export function useAuth() {
-  const { user, isLoading, setUser, setLoading } = useAuthStore();
+  const {
+    user,
+    loading,
+    initialized,
+    error,
+    signInWithGoogle,
+    signOut,
+    initializeAuth,
+  } = useAuthStore();
 
   useEffect(() => {
-    // Initial auth state
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    }
-
-    // Listen for auth changes
-    const unsubscribe = onAuthChange((user) => {
-      setUser(user);
-    });
-
+    const unsubscribe = initializeAuth();
     return () => unsubscribe();
-  }, [setUser]);
-
-  const login = async () => {
-    setLoading(true);
-    try {
-      await signInWithGoogle();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    setLoading(true);
-    try {
-      await signOut();
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [initializeAuth]);
 
   return {
     user,
-    isLoading,
+    loading,
+    initialized,
+    error,
     isAuthenticated: !!user,
-    login,
-    logout,
+    signInWithGoogle,
+    signOut,
   };
 }

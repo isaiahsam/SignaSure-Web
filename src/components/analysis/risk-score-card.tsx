@@ -1,94 +1,92 @@
 'use client';
 
-import { cn } from '@/lib/utils';
-import { Shield, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { cn, getRiskColor, getRiskBgColor, getRiskLabel } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { Shield, AlertTriangle, CheckCircle } from 'lucide-react';
 
 interface RiskScoreCardProps {
-  riskScore: number;
+  score: number;
+  className?: string;
 }
 
-export function RiskScoreCard({ riskScore }: RiskScoreCardProps) {
-  const getRiskColor = (score: number) => {
-    if (score <= 2) return 'text-green-600';
-    if (score <= 6) return 'text-orange-500';
-    return 'text-red-600';
+export function RiskScoreCard({ score, className }: RiskScoreCardProps) {
+  const getIcon = () => {
+    if (score <= 30) return CheckCircle;
+    if (score <= 60) return Shield;
+    return AlertTriangle;
   };
 
-  const getRiskBgColor = (score: number) => {
-    if (score <= 2) return 'bg-green-100 dark:bg-green-900/30';
-    if (score <= 6) return 'bg-orange-100 dark:bg-orange-900/30';
-    return 'bg-red-100 dark:bg-red-900/30';
-  };
+  const Icon = getIcon();
 
-  const getRiskText = (score: number) => {
-    if (score <= 2) return 'Low Risk';
-    if (score <= 4) return 'Low-Medium Risk';
-    if (score <= 6) return 'Medium Risk';
-    if (score <= 8) return 'High Risk';
-    return 'Critical Risk';
-  };
+  // Calculate the stroke dash offset for the circular progress
+  const circumference = 2 * Math.PI * 45; // radius = 45
+  const strokeDashoffset = circumference - (score / 100) * circumference;
 
-  const getSigningRecommendation = (score: number) => {
-    if (score <= 2) return { text: 'Ready to Sign', icon: CheckCircle, color: 'text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' };
-    if (score <= 6) return { text: 'Sign with Caution', icon: AlertTriangle, color: 'text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' };
-    return { text: 'Do Not Sign - Consult Legal Counsel', icon: XCircle, color: 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' };
+  const getStrokeColor = () => {
+    if (score <= 30) return '#22c55e'; // green-500
+    if (score <= 60) return '#eab308'; // yellow-500
+    if (score <= 80) return '#f97316'; // orange-500
+    return '#ef4444'; // red-500
   };
-
-  const recommendation = getSigningRecommendation(riskScore);
-  const RecommendationIcon = recommendation.icon;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex items-center gap-2 mb-4">
-        <Shield className={cn('h-5 w-5', getRiskColor(riskScore))} />
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Risk Assessment
-        </h3>
-      </div>
-
-      {/* Signing Recommendation Banner */}
-      <div
-        className={cn(
-          'flex items-center gap-3 rounded-lg border-2 p-4 mb-6',
-          recommendation.color
-        )}
-      >
-        <RecommendationIcon className="h-7 w-7 flex-shrink-0" />
-        <span className="text-lg font-bold">{recommendation.text}</span>
-      </div>
-
-      {/* Risk Score Display */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <div className="h-3 w-full rounded-full bg-gray-200 dark:bg-slate-700">
-              <div
-                className={cn(
-                  'h-3 rounded-full transition-all duration-500',
-                  riskScore <= 2
-                    ? 'bg-green-500'
-                    : riskScore <= 6
-                    ? 'bg-orange-500'
-                    : 'bg-red-500'
-                )}
-                style={{ width: `${(riskScore / 10) * 100}%` }}
+    <Card className={cn('overflow-hidden', className)}>
+      <CardContent className="p-6">
+        <div className="flex items-center gap-6">
+          <div className="relative w-28 h-28 flex-shrink-0">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+              {/* Background circle */}
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="8"
+                className="text-slate-200 dark:text-slate-700"
               />
+              {/* Progress circle */}
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                fill="none"
+                stroke={getStrokeColor()}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                className="transition-all duration-1000 ease-out"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className={cn('text-3xl font-bold', getRiskColor(score))}>
+                {score}
+              </span>
             </div>
           </div>
-          <span
-            className={cn(
-              'rounded-full px-3 py-1 text-sm font-semibold',
-              getRiskBgColor(riskScore),
-              getRiskColor(riskScore)
-            )}
-          >
-            {getRiskText(riskScore)}
-          </span>
+
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={cn('p-2 rounded-lg', getRiskBgColor(score))}>
+                <Icon className={cn('h-5 w-5', getRiskColor(score))} />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Risk Score
+              </h3>
+            </div>
+            <p className={cn('text-xl font-medium mb-2', getRiskColor(score))}>
+              {getRiskLabel(score)}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {score <= 30 && 'This document appears to be generally safe with few concerns.'}
+              {score > 30 && score <= 60 && 'This document has some areas that need attention.'}
+              {score > 60 && score <= 80 && 'This document has significant concerns to address.'}
+              {score > 80 && 'This document requires careful review before signing.'}
+            </p>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 dark:text-slate-400">
-          {riskScore.toFixed(1)}/10.0
-        </p>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

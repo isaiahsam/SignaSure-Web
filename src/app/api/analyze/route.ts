@@ -1,111 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GeminiClient } from '@/lib/gemini';
-import { DocumentType, FlagType, FlagSeverity, ClauseImportance } from '@/types';
+import { GeminiClient } from '@/lib/gemini/client';
+import type { DocumentType, AnalysisResponse } from '@/types';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
     const body = await request.json();
-    const { text, documentType } = body;
+    const { extractedText, documentType, documentId } = body as {
+      extractedText: string;
+      documentType: DocumentType;
+      documentId: string;
+    };
 
-    // Validate input
-    if (!text || typeof text !== 'string') {
+    if (!extractedText || !documentType || !documentId) {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid text parameter' },
+        {
+          success: false,
+          error: 'Missing required fields: extractedText, documentType, or documentId',
+        },
         { status: 400 }
       );
     }
 
-    if (text.trim().length < 50) {
-      return NextResponse.json(
-        { success: false, error: 'Document text is too short. Please ensure the document contains readable text.' },
-        { status: 400 }
-      );
-    }
-
-    // Validate document type
-    const validTypes = Object.values(DocumentType);
-    const docType = validTypes.includes(documentType as DocumentType)
-      ? (documentType as DocumentType)
-      : DocumentType.other;
-
-    // Get API key from environment
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error('GEMINI_API_KEY not configured');
+      console.error('GEMINI_API_KEY is not configured');
       return NextResponse.json(
-        { success: false, error: 'AI service not configured. Please contact support.' },
+        {
+          success: false,
+          error: 'AI service is not configured. Please contact support.',
+        },
         { status: 500 }
       );
     }
 
-    // Call Gemini API
     const client = new GeminiClient(apiKey);
-    const analysisResponse = await client.analyzeDocument(text, docType);
+    const result = await client.analyzeDocument(extractedText, documentType);
 
-    // Parse the response into our types
-    const analysis = {
-      documentTitle: analysisResponse.documentTitle,
-      flags: analysisResponse.flags.map((flag) => ({
-        type: parseFlagType(flag.type),
-        title: flag.title,
-        description: flag.description,
-        severity: parseFlagSeverity(flag.severity),
-        highlightedText: flag.highlightedText,
-      })),
-      importantClauses: analysisResponse.importantClauses.map((clause) => ({
-        title: clause.title,
-        originalText: clause.originalText,
-        simplifiedExplanation: clause.simplifiedExplanation,
-        importance: parseClauseImportance(clause.importance),
-      })),
-      riskScore: analysisResponse.riskScore,
-      summary: analysisResponse.summary,
-      recommendations: analysisResponse.recommendations,
-      fairnessAssessment: analysisResponse.fairnessAssessment,
-    };
-
-    return NextResponse.json({ success: true, analysis });
+    return NextResponse.json({
+      success: true,
+      analysis: {
+        id: '', // Will be set by Firestore
+        documentId,
+        userId: '', // Will be set by client
+        ...result,
+        createdAt: new Date(),
+      },
+    });
   } catch (error) {
-    console.error('Analysis error:', error);
-    const message = error instanceof Error ? error.message : 'Analysis failed';
-    const errorDetails = error instanceof Error ? error.stack : String(error);
-    console.error('Error details:', errorDetails);
+    console.error('Error in analyze API:', error);
+
+    const errorMessage =
+      error instanceof Error ? error.message : 'An unexpected error occurred';
+
     return NextResponse.json(
-      { success: false, error: message },
+      {
+        success: false,
+        error: errorMessage,
+      },
       { status: 500 }
     );
   }
-}
-
-function parseFlagType(type: string): FlagType {
-  const typeMap: Record<string, FlagType> = {
-    hiddenfee: FlagType.hiddenFee,
-    unfavorableterm: FlagType.unfavorableTerm,
-    missingclause: FlagType.missingClause,
-    loophole: FlagType.loophole,
-    automaticrenewal: FlagType.automaticRenewal,
-    penaltyclause: FlagType.penaltyClause,
-    limitedliability: FlagType.limitedLiability,
-  };
-  return typeMap[type.toLowerCase()] || FlagType.other;
-}
-
-function parseFlagSeverity(severity: string): FlagSeverity {
-  const severityMap: Record<string, FlagSeverity> = {
-    low: FlagSeverity.low,
-    medium: FlagSeverity.medium,
-    high: FlagSeverity.high,
-    critical: FlagSeverity.critical,
-  };
-  return severityMap[severity.toLowerCase()] || FlagSeverity.low;
-}
-
-function parseClauseImportance(importance: string): ClauseImportance {
-  const importanceMap: Record<string, ClauseImportance> = {
-    low: ClauseImportance.low,
-    medium: ClauseImportance.medium,
-    high: ClauseImportance.high,
-    critical: ClauseImportance.critical,
-  };
-  return importanceMap[importance.toLowerCase()] || ClauseImportance.medium;
 }

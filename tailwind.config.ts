@@ -23,20 +23,20 @@ const config: Config = {
           900: '#1e3a8a',
           950: '#172554',
         },
-        risk: {
-          low: '#22c55e',
-          medium: '#f97316',
-          high: '#ef4444',
-          critical: '#7f1d1d',
-        },
       },
       animation: {
-        'shimmer': 'shimmer 2s linear infinite',
+        'fade-in': 'fadeIn 0.3s ease-in-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
-        shimmer: {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
         },
       },
     },

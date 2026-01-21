@@ -1,63 +1,103 @@
-// Analysis-related types for API responses
+export type FlagType =
+  | 'liability'
+  | 'termination'
+  | 'payment'
+  | 'intellectual_property'
+  | 'confidentiality'
+  | 'dispute'
+  | 'renewal'
+  | 'penalty'
+  | 'obligation'
+  | 'other';
 
-export interface GeminiAnalysisResponse {
-  documentTitle: string;
-  flags: {
-    type: string;
-    title: string;
-    description: string;
-    severity: string;
-    highlightedText: string;
-  }[];
-  importantClauses: {
-    title: string;
-    originalText: string;
-    simplifiedExplanation: string;
-    importance: string;
-  }[];
-  riskScore: number;
-  summary: string;
-  recommendations: string[];
-  fairnessAssessment: string;
+export type FlagSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export const FLAG_TYPE_LABELS: Record<FlagType, string> = {
+  liability: 'Liability Concern',
+  termination: 'Termination Clause',
+  payment: 'Payment Terms',
+  intellectual_property: 'Intellectual Property',
+  confidentiality: 'Confidentiality',
+  dispute: 'Dispute Resolution',
+  renewal: 'Renewal/Extension',
+  penalty: 'Penalty Clause',
+  obligation: 'Obligation',
+  other: 'Other',
+};
+
+export const SEVERITY_LABELS: Record<FlagSeverity, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
+};
+
+export interface Flag {
+  id: string;
+  type: FlagType;
+  severity: FlagSeverity;
+  title: string;
+  description: string;
+  originalText?: string;
+  recommendation?: string;
 }
 
-export interface AnalyzeRequestBody {
-  text: string;
+export interface Clause {
+  id: string;
+  title: string;
+  originalText: string;
+  simplifiedExplanation: string;
+  importance: 'low' | 'medium' | 'high';
+}
+
+export interface DocumentAnalysis {
+  id: string;
+  documentId: string;
+  userId: string;
+  riskScore: number;
+  summary: string;
+  flags: Flag[];
+  importantClauses: Clause[];
+  recommendations: string[];
+  fairnessAssessment: string;
+  createdAt: Date;
+}
+
+export interface AnalysisRequest {
+  documentId: string;
+  extractedText: string;
   documentType: string;
 }
 
-export interface AnalyzeResponse {
+export interface AnalysisResponse {
   success: boolean;
-  analysis?: GeminiAnalysisResponse;
+  analysis?: DocumentAnalysis;
   error?: string;
 }
 
-export interface OCRRequestBody {
-  file: string; // Base64 encoded file
-  fileType: string; // 'pdf' | 'image'
+export function getSeverityPriority(severity: FlagSeverity): number {
+  const priorities: Record<FlagSeverity, number> = {
+    critical: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+  return priorities[severity];
 }
 
-export interface OCRResponse {
-  success: boolean;
-  text?: string;
-  error?: string;
+export function sortFlagsBySeverity(flags: Flag[]): Flag[] {
+  return [...flags].sort(
+    (a, b) => getSeverityPriority(b.severity) - getSeverityPriority(a.severity)
+  );
 }
 
-export interface RateLimitStatus {
-  canProceed: boolean;
-  remaining: number;
-  resetTime: Date;
-  limitType: 'hourly' | 'daily' | 'available';
-  message: string;
-  hourlyResetTime?: Date;
-  dailyResetTime?: Date;
+export function getImportancePriority(importance: 'low' | 'medium' | 'high'): number {
+  const priorities = { high: 3, medium: 2, low: 1 };
+  return priorities[importance];
 }
 
-export interface UsageStats {
-  usedThisHour: number;
-  usedToday: number;
-  remainingThisHour: number;
-  remainingToday: number;
-  maxPerHour: number;
-  maxPerDay: number;
+export function sortClausesByImportance(clauses: Clause[]): Clause[] {
+  return [...clauses].sort(
+    (a, b) => getImportancePriority(b.importance) - getImportancePriority(a.importance)
+  );
 }

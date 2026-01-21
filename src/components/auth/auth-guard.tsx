@@ -1,36 +1,37 @@
 'use client';
 
-import { useEffect, ReactNode } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks';
-import { Skeleton } from '@/components/ui';
+import { useAuth } from '@/hooks/useAuth';
+import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
-  children: ReactNode;
+  children: React.ReactNode;
+  fallbackUrl?: string;
 }
 
-export function AuthGuard({ children }: AuthGuardProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+export function AuthGuard({ children, fallbackUrl = '/login' }: AuthGuardProps) {
+  const { user, loading, initialized } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+    if (initialized && !loading && !user) {
+      router.push(fallbackUrl);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [user, loading, initialized, router, fallbackUrl]);
 
-  if (isLoading) {
+  if (!initialized || loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-900">
         <div className="flex flex-col items-center gap-4">
-          <Skeleton className="h-12 w-12 rounded-full" />
-          <Skeleton className="h-4 w-32" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null;
   }
 

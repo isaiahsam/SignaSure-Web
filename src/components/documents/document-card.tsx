@@ -1,159 +1,127 @@
 'use client';
 
 import Link from 'next/link';
-import { Document, getDocumentDisplayTitle } from '@/types';
-import { formatShortDate, cn } from '@/lib/utils';
-import { FileText, Star, MoreVertical, Trash2, Edit2 } from 'lucide-react';
-import { useState } from 'react';
+import { cn, formatDate, formatFileSize, getRiskColor, getRiskLabel } from '@/lib/utils';
+import { DOCUMENT_TYPE_LABELS, Document } from '@/types';
+import { FileText, Star, MoreVertical, Trash2, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useState, useRef, useEffect } from 'react';
 
 interface DocumentCardProps {
   document: Document;
-  onToggleFavorite?: (id: string, isFavorite: boolean) => void;
-  onDelete?: (id: string) => void;
-  onEditTitle?: (id: string, title: string) => void;
+  riskScore?: number;
+  onToggleFavorite?: (documentId: string) => void;
+  onDelete?: (documentId: string) => void;
 }
 
 export function DocumentCard({
-  document,
+  document: doc,
+  riskScore,
   onToggleFavorite,
   onDelete,
-  onEditTitle,
 }: DocumentCardProps) {
   const [showMenu, setShowMenu] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(getDocumentDisplayTitle(document));
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const riskScore = document.analysis?.riskScore ?? 0;
-  const riskColor =
-    riskScore <= 2
-      ? 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30'
-      : riskScore <= 6
-      ? 'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30'
-      : 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30';
-
-  const handleSaveTitle = () => {
-    if (editTitle.trim() && onEditTitle) {
-      onEditTitle(document.id, editTitle.trim());
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
     }
-    setIsEditing(false);
-  };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="group rounded-xl border border-gray-200 bg-white p-4 transition-all duration-300 ease-out hover:shadow-lg hover:border-primary-200 hover:-translate-y-1 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-primary-700">
-      <div className="flex items-start justify-between">
-        <Link href={`/analysis/${document.id}`} className="flex-1">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-primary-100 p-2 dark:bg-primary-900/30 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
-              <FileText className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  onBlur={handleSaveTitle}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none dark:border-slate-600 dark:bg-slate-700 transition-colors duration-200"
-                  autoFocus
-                  onClick={(e) => e.preventDefault()}
-                />
-              ) : (
-                <h3 className="font-medium text-gray-900 truncate dark:text-white transition-colors duration-200 group-hover:text-primary-600 dark:group-hover:text-primary-400">
-                  {getDocumentDisplayTitle(document)}
-                </h3>
-              )}
-              <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-                {formatShortDate(document.uploadDate)}
+    <div className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-4">
+        <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
+          <FileText className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <Link
+                href={`/analysis/${doc.id}`}
+                className="font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 truncate block"
+              >
+                {doc.fileName}
+              </Link>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {DOCUMENT_TYPE_LABELS[doc.documentType]}
               </p>
             </div>
-          </div>
-        </Link>
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              onToggleFavorite?.(document.id, !document.isFavorite);
-            }}
-            className={cn(
-              'rounded-lg p-1.5 transition-all duration-200 hover:scale-110 active:scale-95',
-              document.isFavorite
-                ? 'text-yellow-500'
-                : 'text-gray-400 hover:text-yellow-500'
-            )}
-          >
-            <Star
-              className={cn(
-                'h-5 w-5 transition-transform duration-200',
-                document.isFavorite && 'animate-bounce-soft'
+            <div className="flex items-center gap-1">
+              {onToggleFavorite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onToggleFavorite(doc.id)}
+                  className="p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Star
+                    className={cn(
+                      'h-4 w-4',
+                      doc.isFavorite
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-slate-400'
+                    )}
+                  />
+                </Button>
               )}
-              fill={document.isFavorite ? 'currentColor' : 'none'}
-            />
-          </button>
 
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                setShowMenu(!showMenu);
-              }}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-all duration-200 hover:scale-110 active:scale-95"
-            >
-              <MoreVertical className="h-5 w-5" />
-            </button>
+              <div className="relative" ref={menuRef}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreVertical className="h-4 w-4 text-slate-400" />
+                </Button>
 
-            {showMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowMenu(false)}
-                />
-                <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800 animate-scale-in origin-top-right">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowMenu(false);
-                      setIsEditing(true);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors duration-150"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                    Edit Title
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowMenu(false);
-                      onDelete?.(document.id);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors duration-150"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </button>
-                </div>
-              </>
+                {showMenu && (
+                  <div className="absolute right-0 mt-1 w-40 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1 z-10 animate-fade-in">
+                    <Link
+                      href={`/analysis/${doc.id}`}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Analysis
+                    </Link>
+                    {onDelete && (
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          onDelete(doc.id);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center gap-4 text-xs text-slate-400 dark:text-slate-500">
+            <span>{formatFileSize(doc.fileSize)}</span>
+            <span>{formatDate(doc.createdAt)}</span>
+            {riskScore !== undefined && (
+              <span className={cn('font-medium', getRiskColor(riskScore))}>
+                {getRiskLabel(riskScore)}
+              </span>
             )}
           </div>
         </div>
       </div>
-
-      {document.analysis && (
-        <div className="mt-3 flex items-center gap-3">
-          <span
-            className={cn(
-              'rounded-full px-2.5 py-0.5 text-xs font-medium transition-transform duration-200 hover:scale-105',
-              riskColor
-            )}
-          >
-            Risk: {riskScore.toFixed(1)}
-          </span>
-          <span className="text-xs text-gray-500 dark:text-slate-400">
-            {document.analysis.flags.length} flags
-          </span>
-        </div>
-      )}
     </div>
   );
 }

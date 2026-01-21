@@ -1,21 +1,23 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { cn } from '@/lib/utils';
-import { Upload, FileText, X, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { useDropzone, FileRejection } from 'react-dropzone';
+import { cn, formatFileSize } from '@/lib/utils';
+import { Upload, FileText, X, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface UploadDropzoneProps {
   onFileSelect: (file: File) => void;
-  isLoading?: boolean;
+  isProcessing?: boolean;
+  progress?: number;
   accept?: Record<string, string[]>;
   maxSize?: number;
 }
 
 export function UploadDropzone({
   onFileSelect,
-  isLoading = false,
+  isProcessing = false,
+  progress = 0,
   accept = {
     'application/pdf': ['.pdf'],
     'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
@@ -26,26 +28,23 @@ export function UploadDropzone({
   const [error, setError] = useState<string | null>(null);
 
   const onDrop = useCallback(
-    (acceptedFiles: File[], rejectedFiles: any[]) => {
+    (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
       setError(null);
 
       if (rejectedFiles.length > 0) {
         const rejection = rejectedFiles[0];
-        if (rejection.errors[0]?.code === 'file-too-large') {
-          setError(`File is too large. Maximum size is ${maxSize / 1024 / 1024}MB.`);
-        } else if (rejection.errors[0]?.code === 'file-invalid-type') {
-          setError('Invalid file type. Please upload a PDF or image file.');
-        } else {
-          setError('Failed to upload file. Please try again.');
-        }
+        const errorMessage = rejection.errors[0]?.message || 'File not accepted';
+        setError(errorMessage);
         return;
       }
 
       if (acceptedFiles.length > 0) {
-        setSelectedFile(acceptedFiles[0]);
+        const file = acceptedFiles[0];
+        setSelectedFile(file);
+        onFileSelect(file);
       }
     },
-    [maxSize]
+    [onFileSelect]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -53,88 +52,95 @@ export function UploadDropzone({
     accept,
     maxSize,
     multiple: false,
-    disabled: isLoading,
+    disabled: isProcessing,
   });
 
-  const handleRemoveFile = () => {
+  const clearFile = () => {
     setSelectedFile(null);
     setError(null);
   };
 
-  const handleUpload = () => {
-    if (selectedFile) {
-      onFileSelect(selectedFile);
-    }
-  };
-
   return (
-    <div className="space-y-4">
+    <div className="w-full">
       {!selectedFile ? (
         <div
           {...getRootProps()}
           className={cn(
-            'cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300',
+            'relative border-2 border-dashed rounded-xl p-8 md:p-12 transition-colors cursor-pointer',
+            'flex flex-col items-center justify-center text-center',
             isDragActive
-              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 scale-[1.02] shadow-lg'
-              : 'border-gray-300 hover:border-primary-400 hover:shadow-md dark:border-slate-600 dark:hover:border-primary-500',
-            isLoading && 'cursor-not-allowed opacity-50'
+              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+              : 'border-slate-300 dark:border-slate-600 hover:border-primary-400 dark:hover:border-primary-500',
+            isProcessing && 'pointer-events-none opacity-50'
           )}
         >
           <input {...getInputProps()} />
-          <Upload className={cn(
-            'mx-auto h-12 w-12 text-gray-400 dark:text-slate-500 transition-all duration-300',
-            isDragActive && 'text-primary-500 scale-110 animate-bounce'
-          )} />
-          <p className="mt-4 text-lg font-medium text-gray-700 dark:text-slate-200 transition-colors duration-200">
-            {isDragActive ? 'Drop your document here' : 'Drag & drop your document'}
+
+          <div className="p-4 rounded-full bg-primary-100 dark:bg-primary-900/30 mb-4">
+            <Upload className="h-8 w-8 text-primary-600" />
+          </div>
+
+          <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+            {isDragActive ? 'Drop your file here' : 'Upload your document'}
+          </h3>
+
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            Drag and drop your file, or click to browse
           </p>
-          <p className="mt-2 text-sm text-gray-500 dark:text-slate-400">
-            or click to browse
-          </p>
-          <p className="mt-4 text-xs text-gray-400 dark:text-slate-500">
-            Supported formats: PDF, PNG, JPG, JPEG (Max {maxSize / 1024 / 1024}MB)
+
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Supported: PDF, PNG, JPG, JPEG (max {formatFileSize(maxSize)})
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-6 dark:border-slate-700 dark:bg-slate-800 animate-scale-in">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary-100 p-2 dark:bg-primary-900/30 transition-transform duration-300 hover:scale-110 hover:rotate-3">
-                <FileText className="h-6 w-6 text-primary-600 dark:text-primary-400" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedFile.name}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-slate-400">
-                  {(selectedFile.size / 1024).toFixed(1)} KB
-                </p>
-              </div>
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-lg bg-primary-100 dark:bg-primary-900/30">
+              <FileText className="h-6 w-6 text-primary-600" />
             </div>
-            <button
-              onClick={handleRemoveFile}
-              className="rounded-lg p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-all duration-200 hover:scale-110 hover:rotate-90 active:scale-95"
-              disabled={isLoading}
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
 
-          <Button
-            onClick={handleUpload}
-            className="mt-4 w-full"
-            isLoading={isLoading}
-          >
-            {isLoading ? 'Processing...' : 'Analyze Document'}
-          </Button>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                {selectedFile.name}
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {formatFileSize(selectedFile.size)}
+              </p>
+
+              {isProcessing && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary-600" />
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      Processing... {Math.round(progress)}%
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary-600 transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {!isProcessing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFile}
+                className="p-2"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-600 dark:bg-red-900/20 dark:text-red-400 animate-shake">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-        </div>
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
     </div>
   );

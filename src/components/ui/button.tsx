@@ -2,67 +2,72 @@
 
 import { forwardRef, ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', isLoading, children, disabled, ...props }, ref) => {
+  (
+    {
+      className,
+      variant = 'primary',
+      size = 'md',
+      isLoading = false,
+      leftIcon,
+      rightIcon,
+      disabled,
+      children,
+      ...props
+    },
+    ref
+  ) => {
     const baseStyles =
-      'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] hover:shadow-md active:shadow-sm';
+      'inline-flex items-center justify-center font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
-    const variants = {
+    const variantStyles = {
       primary:
-        'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-primary-500/25 focus-visible:ring-primary-500 active:bg-primary-800',
+        'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 focus:ring-primary-500',
       secondary:
-        'bg-gray-100 text-gray-900 hover:bg-gray-200 hover:shadow-gray-500/10 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600 active:bg-gray-300 dark:active:bg-slate-500',
+        'bg-slate-100 text-slate-900 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 focus:ring-slate-500',
       outline:
-        'border-2 border-gray-300 bg-transparent hover:bg-gray-100 hover:border-gray-400 dark:border-slate-600 dark:hover:bg-slate-800 dark:hover:border-slate-500 active:bg-gray-200 dark:active:bg-slate-700',
+        'border border-slate-300 bg-transparent hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-800 focus:ring-slate-500',
       ghost:
-        'bg-transparent hover:bg-gray-100 dark:hover:bg-slate-800 active:bg-gray-200 dark:active:bg-slate-700',
-      destructive:
-        'bg-red-600 text-white hover:bg-red-700 hover:shadow-red-500/25 focus-visible:ring-red-500 active:bg-red-800',
+        'bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 focus:ring-slate-500',
+      danger:
+        'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 focus:ring-red-500',
     };
 
-    const sizes = {
-      sm: 'h-8 px-3 text-sm',
-      md: 'h-10 px-4',
-      lg: 'h-12 px-6 text-lg',
+    const sizeStyles = {
+      sm: 'text-sm px-3 py-1.5 rounded-md gap-1.5',
+      md: 'text-sm px-4 py-2 rounded-lg gap-2',
+      lg: 'text-base px-6 py-3 rounded-lg gap-2',
     };
 
     return (
       <button
         ref={ref}
-        className={cn(baseStyles, variants[variant], sizes[size], className)}
         disabled={disabled || isLoading}
+        className={cn(
+          baseStyles,
+          variantStyles[variant],
+          sizeStyles[size],
+          className
+        )}
         {...props}
       >
-        {isLoading && (
-          <svg
-            className="mr-2 h-4 w-4 animate-spin"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          leftIcon
         )}
         {children}
+        {!isLoading && rightIcon}
       </button>
     );
   }

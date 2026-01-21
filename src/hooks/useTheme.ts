@@ -1,25 +1,45 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useThemeStore, applyTheme } from '@/stores';
+import { useEffect, useState } from 'react';
+import { useThemeStore, Theme } from '@/stores/theme-store';
 
 export function useTheme() {
   const { theme, setTheme } = useThemeStore();
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
-    applyTheme(theme);
+    const updateTheme = () => {
+      let newTheme: 'light' | 'dark';
 
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
       if (theme === 'system') {
-        applyTheme('system');
+        newTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
+      } else {
+        newTheme = theme;
+      }
+
+      setResolvedTheme(newTheme);
+
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
       }
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    updateTheme();
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', updateTheme);
+
+    return () => mediaQuery.removeEventListener('change', updateTheme);
   }, [theme]);
 
-  return { theme, setTheme };
+  return {
+    theme,
+    resolvedTheme,
+    setTheme,
+    isDark: resolvedTheme === 'dark',
+  };
 }

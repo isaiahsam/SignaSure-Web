@@ -1,202 +1,215 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useDocuments, useUpdateDocument, useDeleteDocument } from '@/hooks';
+import { useDocuments, useUpdateDocument, useDeleteDocument } from '@/hooks/useDocuments';
 import { useToast } from '@/components/ui/toast';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import { Input, Select } from '@/components/ui';
-import { DocumentCardSkeleton } from '@/components/ui';
-import { DocumentCard } from '@/components/documents';
-import { DocumentType, getDocumentDisplayTitle } from '@/types';
-import { FileText, Search, Filter } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { DocumentCard } from '@/components/documents/document-card';
+import { SkeletonList } from '@/components/ui/skeleton';
+import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types';
+import { Search, FileText, SlidersHorizontal } from 'lucide-react';
 
-type SortOption = 'newest' | 'oldest' | 'risk-high' | 'risk-low';
+type SortOption = 'newest' | 'oldest' | 'name';
 type FilterOption = 'all' | 'favorites' | DocumentType;
 
 export default function HistoryPage() {
   const { data: documents, isLoading } = useDocuments();
-  const { mutate: updateDoc } = useUpdateDocument();
-  const { mutate: deleteDoc } = useDeleteDocument();
-  const { success, error } = useToast();
+  const { addToast } = useToast();
+  const updateDocument = useUpdateDocument();
+  const deleteDocument = useDeleteDocument();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const handleToggleFavorite = async (documentId: string) => {
+    const doc = documents?.find((d) => d.id === documentId);
+    if (!doc) return;
+
+    try {
+      await updateDocument.mutateAsync({
+        documentId,
+        input: { isFavorite: !doc.isFavorite },
+      });
+      addToast({
+        type: 'success',
+        title: doc.isFavorite ? 'Removed from favorites' : 'Added to favorites',
+      });
+    } catch {
+      addToast({
+        type: 'error',
+        title: 'Failed to update',
+      });
+    }
+  };
+
+  const handleDelete = async (documentId: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) {
+      return;
+    }
+
+    try {
+      await deleteDocument.mutateAsync(documentId);
+      addToast({
+        type: 'success',
+        title: 'Document deleted',
+      });
+    } catch {
+      addToast({
+        type: 'error',
+        title: 'Failed to delete document',
+      });
+    }
+  };
 
   const filteredAndSortedDocuments = useMemo(() => {
     if (!documents) return [];
 
-    let filtered = [...documents];
+    let result = [...documents];
 
-    // Apply search filter
-    if (searchQuery.trim()) {
+    // Filter
+    if (filterBy === 'favorites') {
+      result = result.filter((d) => d.isFavorite);
+    } else if (filterBy !== 'all') {
+      result = result.filter((d) => d.documentType === filterBy);
+    }
+
+    // Search
+    if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((doc) =>
-        getDocumentDisplayTitle(doc).toLowerCase().includes(query)
+      result = result.filter((d) =>
+        d.fileName.toLowerCase().includes(query)
       );
     }
 
-    // Apply type/favorites filter
-    if (filterBy === 'favorites') {
-      filtered = filtered.filter((doc) => doc.isFavorite);
-    } else if (filterBy !== 'all') {
-      filtered = filtered.filter((doc) => doc.type === filterBy);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
+    // Sort
+    result.sort((a, b) => {
       switch (sortBy) {
         case 'newest':
-          return b.uploadDate.getTime() - a.uploadDate.getTime();
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         case 'oldest':
-          return a.uploadDate.getTime() - b.uploadDate.getTime();
-        case 'risk-high':
-          return (b.analysis?.riskScore ?? 0) - (a.analysis?.riskScore ?? 0);
-        case 'risk-low':
-          return (a.analysis?.riskScore ?? 0) - (b.analysis?.riskScore ?? 0);
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'name':
+          return a.fileName.localeCompare(b.fileName);
         default:
           return 0;
       }
     });
 
-    return filtered;
-  }, [documents, searchQuery, sortBy, filterBy]);
+    return result;
+  }, [documents, filterBy, searchQuery, sortBy]);
 
-  const handleToggleFavorite = (id: string, isFavorite: boolean) => {
-    updateDoc(
-      { documentId: id, data: { isFavorite } },
-      {
-        onSuccess: () => success(isFavorite ? 'Added to favorites' : 'Removed from favorites'),
-        onError: () => error('Failed to update favorite status'),
-      }
-    );
-  };
+  const filterOptions = [
+    { value: 'all', label: 'All Documents' },
+    { value: 'favorites', label: 'Favorites Only' },
+    ...Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => ({
+      value,
+      label,
+    })),
+  ];
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this document?')) {
-      deleteDoc(id, {
-        onSuccess: () => success('Document deleted'),
-        onError: () => error('Failed to delete document'),
-      });
-    }
-  };
-
-  const handleEditTitle = (id: string, title: string) => {
-    updateDoc(
-      { documentId: id, data: { customTitle: title } },
-      {
-        onSuccess: () => success('Title updated'),
-        onError: () => error('Failed to update title'),
-      }
-    );
-  };
+  const sortOptions = [
+    { value: 'newest', label: 'Newest First' },
+    { value: 'oldest', label: 'Oldest First' },
+    { value: 'name', label: 'Name (A-Z)' },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="animate-fade-in-down">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">
           Document History
         </h1>
-        <p className="mt-1 text-gray-600 dark:text-slate-400">
+        <p className="text-slate-600 dark:text-slate-400 mt-1">
           View and manage all your analyzed documents
         </p>
       </div>
 
-      {/* Filters */}
-      <Card className="opacity-0 animate-fade-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors duration-200" />
-              <Input
-                placeholder="Search documents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 transition-all duration-200 focus:scale-[1.01]"
+      {/* Search and Filters */}
+      <div className="space-y-4">
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+          >
+            Filters
+          </Button>
+        </div>
+
+        {showFilters && (
+          <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 animate-fade-in">
+            <div className="flex-1">
+              <Select
+                label="Filter by"
+                value={filterBy}
+                onChange={(val) => setFilterBy(val as FilterOption)}
+                options={filterOptions}
               />
             </div>
-
-            <div className="flex gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-gray-400" />
-                <Select
-                  value={filterBy}
-                  onChange={(e) => setFilterBy(e.target.value as FilterOption)}
-                  className="w-40 transition-all duration-200"
-                >
-                  <option value="all">All Types</option>
-                  <option value="favorites">Favorites Only</option>
-                  <option value={DocumentType.contract}>Contracts</option>
-                  <option value={DocumentType.lease}>Leases</option>
-                  <option value={DocumentType.loan}>Loans</option>
-                  <option value={DocumentType.insurance}>Insurance</option>
-                  <option value={DocumentType.employment}>Employment</option>
-                  <option value={DocumentType.other}>Other</option>
-                </Select>
-              </div>
-
+            <div className="flex-1">
               <Select
+                label="Sort by"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="w-36 transition-all duration-200"
-              >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="risk-high">Highest Risk</option>
-                <option value="risk-low">Lowest Risk</option>
-              </Select>
+                onChange={(val) => setSortBy(val as SortOption)}
+                options={sortOptions}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
-      {/* Document List */}
-      <Card className="opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
-        <CardHeader>
-          <CardTitle>
-            {isLoading
-              ? 'Loading...'
-              : `${filteredAndSortedDocuments.length} Document${
-                  filteredAndSortedDocuments.length !== 1 ? 's' : ''
-                }`}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              <DocumentCardSkeleton />
-              <DocumentCardSkeleton />
-              <DocumentCardSkeleton />
-            </div>
-          ) : filteredAndSortedDocuments.length === 0 ? (
-            <div className="py-12 text-center animate-fade-in">
-              <FileText className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-4 text-gray-600 dark:text-slate-400">
-                {searchQuery || filterBy !== 'all'
-                  ? 'No documents match your filters'
-                  : 'No documents yet'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredAndSortedDocuments.map((doc, index) => (
-                <div
-                  key={doc.id}
-                  className="opacity-0 animate-slide-in-right"
-                  style={{ animationDelay: `${0.05 * index}s`, animationFillMode: 'forwards' }}
-                >
-                  <DocumentCard
-                    document={doc}
-                    onToggleFavorite={handleToggleFavorite}
-                    onDelete={handleDelete}
-                    onEditTitle={handleEditTitle}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Results count */}
+      {!isLoading && documents && (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Showing {filteredAndSortedDocuments.length} of {documents.length} documents
+        </p>
+      )}
+
+      {/* Documents List */}
+      {isLoading ? (
+        <SkeletonList count={5} />
+      ) : filteredAndSortedDocuments.length > 0 ? (
+        <div className="space-y-3">
+          {filteredAndSortedDocuments.map((doc) => (
+            <DocumentCard
+              key={doc.id}
+              document={doc}
+              onToggleFavorite={handleToggleFavorite}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <FileText className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+              {searchQuery || filterBy !== 'all'
+                ? 'No documents match your filters'
+                : 'No documents yet'}
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {searchQuery || filterBy !== 'all'
+                ? 'Try adjusting your search or filters'
+                : 'Upload your first document to get started'}
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

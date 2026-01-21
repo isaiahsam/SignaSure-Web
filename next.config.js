@@ -1,9 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config) => {
-    // Handle canvas dependency for pdfjs-dist
     config.resolve.alias.canvas = false;
-    config.resolve.alias.encoding = false;
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      stream: false,
+    };
     return config;
   },
 };

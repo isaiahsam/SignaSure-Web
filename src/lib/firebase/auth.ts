@@ -5,35 +5,18 @@ import {
   onAuthStateChanged,
   User,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from './config';
+import { auth } from './config';
 
 const googleProvider = new GoogleAuthProvider();
 
 export async function signInWithGoogle(): Promise<User | null> {
+  if (!auth) {
+    throw new Error('Firebase auth not initialized');
+  }
+
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-
-    // Check if user exists in Firestore, if not create
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      await setDoc(userRef, {
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        createdAt: serverTimestamp(),
-        preferences: {
-          theme: 'system',
-          fontSize: 'medium',
-        },
-        hasCompletedOnboarding: false,
-      });
-    }
-
-    return user;
+    return result.user;
   } catch (error) {
     console.error('Error signing in with Google:', error);
     throw error;
@@ -41,6 +24,10 @@ export async function signInWithGoogle(): Promise<User | null> {
 }
 
 export async function signOut(): Promise<void> {
+  if (!auth) {
+    throw new Error('Firebase auth not initialized');
+  }
+
   try {
     await firebaseSignOut(auth);
   } catch (error) {
@@ -50,9 +37,19 @@ export async function signOut(): Promise<void> {
 }
 
 export function onAuthChange(callback: (user: User | null) => void): () => void {
+  if (!auth) {
+    console.warn('Firebase auth not initialized');
+    // Still call the callback with null to update the state
+    setTimeout(() => callback(null), 0);
+    return () => {};
+  }
+
   return onAuthStateChanged(auth, callback);
 }
 
 export function getCurrentUser(): User | null {
-  return auth?.currentUser ?? null;
+  if (!auth) {
+    return null;
+  }
+  return auth.currentUser;
 }

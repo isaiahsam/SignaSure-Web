@@ -1,214 +1,180 @@
 'use client';
 
-import { useState } from 'react';
+import { cn, getSeverityColor, getSeverityBgColor } from '@/lib/utils';
+import { Flag, FLAG_TYPE_LABELS, SEVERITY_LABELS, sortFlagsBySeverity } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  AnalysisFlag,
-  FlagSeverity,
-  getFlagPriorityScore,
-  getFlagActionLabel,
-  getFlagPriorityRank,
-  getFlagTypeDisplayName,
-} from '@/types';
-import { cn } from '@/lib/utils';
-import {
-  Flag,
-  Info,
   AlertTriangle,
   AlertCircle,
-  Skull,
+  Info,
   ChevronDown,
   ChevronUp,
-  CheckCircle,
 } from 'lucide-react';
+import { useState } from 'react';
 
 interface FlagsTabProps {
-  flags: AnalysisFlag[];
+  flags: Flag[];
 }
 
 export function FlagsTab({ flags }: FlagsTabProps) {
-  // Sort flags by priority (highest first)
-  const sortedFlags = [...flags].sort(
-    (a, b) => getFlagPriorityScore(b) - getFlagPriorityScore(a)
-  );
-
-  // Count by priority
-  const criticalCount = sortedFlags.filter((f) => getFlagPriorityScore(f) >= 100).length;
-  const highCount = sortedFlags.filter(
-    (f) => getFlagPriorityScore(f) >= 70 && getFlagPriorityScore(f) < 100
-  ).length;
-  const mediumCount = sortedFlags.filter(
-    (f) => getFlagPriorityScore(f) >= 40 && getFlagPriorityScore(f) < 70
-  ).length;
-  const lowCount = sortedFlags.filter((f) => getFlagPriorityScore(f) < 40).length;
+  const sortedFlags = sortFlagsBySeverity(flags);
 
   if (flags.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <CheckCircle className="h-20 w-20 text-green-500" />
-        <h3 className="mt-4 text-2xl font-bold text-green-600">No Issues Found</h3>
-        <p className="mt-2 text-gray-500 dark:text-slate-400">
-          This document appears to be free of major concerns.
-        </p>
-      </div>
+      <Card>
+        <CardContent className="p-8 text-center">
+          <div className="p-4 rounded-full bg-green-100 dark:bg-green-900/30 w-fit mx-auto mb-4">
+            <Info className="h-8 w-8 text-green-600" />
+          </div>
+          <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+            No Issues Found
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Great news! No significant concerns were identified in this document.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
+  const criticalCount = flags.filter((f) => f.severity === 'critical').length;
+  const highCount = flags.filter((f) => f.severity === 'high').length;
+  const mediumCount = flags.filter((f) => f.severity === 'medium').length;
+  const lowCount = flags.filter((f) => f.severity === 'low').length;
+
   return (
     <div className="space-y-4">
-      {/* Info Banner */}
-      <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-        <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-red-100 p-2 dark:bg-red-800/30">
-            <Flag className="h-6 w-6 text-red-600 dark:text-red-400" />
+      {/* Summary */}
+      <div className="flex flex-wrap gap-3">
+        {criticalCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
+            <AlertTriangle className="h-4 w-4" />
+            {criticalCount} Critical
           </div>
-          <div className="flex-1">
-            <h4 className="font-bold text-red-800 dark:text-red-300">What are Flags?</h4>
-            <p className="text-sm text-red-700 dark:text-red-400">
-              Warning signs of problems in the contract
-            </p>
-            <div className="mt-3 rounded-lg bg-white p-3 dark:bg-slate-800">
-              <p className="text-sm text-gray-700 dark:text-slate-300">
-                Flags are problems we found that could hurt you. They include hidden fees,
-                unfair terms, and tricky clauses. The worst problems are marked as
-                &quot;Critical&quot; (P1) and should be fixed first.
-              </p>
-            </div>
-            <p className="mt-3 text-xs font-semibold text-red-700 dark:text-red-400">
-              Sorted by priority - Most important first:
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {criticalCount > 0 && (
-                <span className="rounded border border-red-900 bg-red-100 px-2 py-0.5 text-xs font-bold text-red-900 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300">
-                  P1: {criticalCount}
-                </span>
-              )}
-              {highCount > 0 && (
-                <span className="rounded border border-red-600 bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600 dark:bg-red-900/30 dark:border-red-500 dark:text-red-400">
-                  P2: {highCount}
-                </span>
-              )}
-              {mediumCount > 0 && (
-                <span className="rounded border border-orange-500 bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-600 dark:bg-orange-900/30 dark:border-orange-500 dark:text-orange-400">
-                  P3: {mediumCount}
-                </span>
-              )}
-              {lowCount > 0 && (
-                <span className="rounded border border-blue-500 bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-600 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-400">
-                  P4: {lowCount}
-                </span>
-              )}
-            </div>
+        )}
+        {highCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-sm">
+            <AlertCircle className="h-4 w-4" />
+            {highCount} High
           </div>
-        </div>
+        )}
+        {mediumCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 text-sm">
+            <Info className="h-4 w-4" />
+            {mediumCount} Medium
+          </div>
+        )}
+        {lowCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-sm">
+            <Info className="h-4 w-4" />
+            {lowCount} Low
+          </div>
+        )}
       </div>
 
-      {/* Flag List */}
+      {/* Flags list */}
       <div className="space-y-3">
-        {sortedFlags.map((flag, index) => (
-          <FlagCard key={index} flag={flag} />
+        {sortedFlags.map((flag) => (
+          <FlagItem key={flag.id} flag={flag} />
         ))}
       </div>
     </div>
   );
 }
 
-function FlagCard({ flag }: { flag: AnalysisFlag }) {
+function FlagItem({ flag }: { flag: Flag }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const priorityScore = getFlagPriorityScore(flag);
 
-  const getSeverityIcon = (severity: FlagSeverity) => {
-    switch (severity) {
-      case FlagSeverity.low:
-        return Info;
-      case FlagSeverity.medium:
+  const getSeverityIcon = () => {
+    switch (flag.severity) {
+      case 'critical':
+      case 'high':
         return AlertTriangle;
-      case FlagSeverity.high:
+      case 'medium':
         return AlertCircle;
-      case FlagSeverity.critical:
-        return Skull;
+      default:
+        return Info;
     }
   };
 
-  const getSeverityColor = (severity: FlagSeverity) => {
-    switch (severity) {
-      case FlagSeverity.low:
-        return 'text-blue-600';
-      case FlagSeverity.medium:
-        return 'text-orange-500';
-      case FlagSeverity.high:
-        return 'text-red-500';
-      case FlagSeverity.critical:
-        return 'text-red-800';
-    }
-  };
-
-  const getPriorityColor = (score: number) => {
-    if (score >= 100) return 'text-red-900 bg-red-100 border-red-900 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300';
-    if (score >= 70) return 'text-red-600 bg-red-50 border-red-600 dark:bg-red-900/20 dark:border-red-500 dark:text-red-400';
-    if (score >= 40) return 'text-orange-600 bg-orange-50 border-orange-500 dark:bg-orange-900/20 dark:border-orange-500 dark:text-orange-400';
-    return 'text-blue-600 bg-blue-50 border-blue-500 dark:bg-blue-900/20 dark:border-blue-500 dark:text-blue-400';
-  };
-
-  const SeverityIcon = getSeverityIcon(flag.severity);
+  const Icon = getSeverityIcon();
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white dark:border-slate-700 dark:bg-slate-800">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-start gap-3 p-4 text-left"
-      >
-        <SeverityIcon className={cn('mt-0.5 h-5 w-5', getSeverityColor(flag.severity))} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <h4 className="font-semibold text-gray-900 dark:text-white">{flag.title}</h4>
-            <span
-              className={cn(
-                'flex-shrink-0 rounded border px-2 py-0.5 text-xs font-bold',
-                getPriorityColor(priorityScore)
-              )}
-            >
-              {getFlagPriorityRank(priorityScore)}
-            </span>
+    <Card>
+      <CardHeader className="p-4 pb-0">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-start gap-3 text-left"
+        >
+          <div className={cn('p-2 rounded-lg mt-0.5', getSeverityBgColor(flag.severity))}>
+            <Icon className={cn('h-4 w-4', getSeverityColor(flag.severity))} />
           </div>
-          <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-            {getFlagTypeDisplayName(flag.type)}
-          </p>
-          <span
-            className={cn(
-              'mt-2 inline-block rounded px-2 py-0.5 text-xs font-semibold',
-              getPriorityColor(priorityScore)
-            )}
-          >
-            {getFlagActionLabel(priorityScore)}
-          </span>
-        </div>
-        {isExpanded ? (
-          <ChevronUp className="h-5 w-5 text-gray-400" />
-        ) : (
-          <ChevronDown className="h-5 w-5 text-gray-400" />
-        )}
-      </button>
 
-      {isExpanded && (
-        <div className="border-t border-gray-200 p-4 dark:border-slate-700">
-          <div className="space-y-4">
-            <div>
-              <h5 className="font-semibold text-gray-900 dark:text-white">Description:</h5>
-              <p className="mt-1 text-gray-600 dark:text-slate-300">{flag.description}</p>
-            </div>
-            <div>
-              <h5 className="font-semibold text-gray-900 dark:text-white">
-                Highlighted Text:
-              </h5>
-              <div className="mt-1 rounded-lg border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-600 dark:bg-yellow-900/20">
-                <p className="italic text-gray-700 dark:text-slate-300">
-                  {flag.highlightedText}
-                </p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h4 className="font-medium text-slate-900 dark:text-slate-100">
+                  {flag.title}
+                </h4>
+                <div className="flex items-center gap-2 mt-1">
+                  <span
+                    className={cn(
+                      'text-xs font-medium px-2 py-0.5 rounded-full',
+                      getSeverityBgColor(flag.severity),
+                      getSeverityColor(flag.severity)
+                    )}
+                  >
+                    {SEVERITY_LABELS[flag.severity]}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {FLAG_TYPE_LABELS[flag.type]}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                )}
               </div>
             </div>
           </div>
-        </div>
+        </button>
+      </CardHeader>
+
+      {isExpanded && (
+        <CardContent className="p-4 pt-3">
+          <div className="ml-11 space-y-3">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              {flag.description}
+            </p>
+
+            {flag.originalText && (
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border-l-4 border-slate-300 dark:border-slate-600">
+                <p className="text-xs text-slate-500 dark:text-slate-500 mb-1">
+                  From the document:
+                </p>
+                <p className="text-sm text-slate-700 dark:text-slate-300 italic">
+                  &ldquo;{flag.originalText}&rdquo;
+                </p>
+              </div>
+            )}
+
+            {flag.recommendation && (
+              <div className="p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20">
+                <p className="text-xs text-primary-600 dark:text-primary-400 font-medium mb-1">
+                  Recommendation:
+                </p>
+                <p className="text-sm text-primary-700 dark:text-primary-300">
+                  {flag.recommendation}
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }

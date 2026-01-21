@@ -1,125 +1,158 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@/hooks';
-import { Button } from '@/components/ui';
-import { Menu, X, FileText, Sun, Moon, Monitor } from 'lucide-react';
-import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { useRateLimit } from '@/hooks/useRateLimit';
+import { Button } from '@/components/ui/button';
+import {
+  FileText,
+  Moon,
+  Sun,
+  Monitor,
+  LogOut,
+  User,
+  ChevronDown,
+  Zap,
+} from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
 export function Header() {
-  const { user, logout, isAuthenticated } = useAuth();
-  const { theme, setTheme } = useTheme();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isRotating, setIsRotating] = useState(false);
+  const { user, signOut } = useAuth();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { remainingAnalyses, dailyLimit } = useRateLimit();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
 
-  const themeIcon = {
-    light: <Sun className="h-5 w-5" />,
-    dark: <Moon className="h-5 w-5" />,
-    system: <Monitor className="h-5 w-5" />,
-  };
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+      if (themeMenuRef.current && !themeMenuRef.current.contains(event.target as Node)) {
+        setShowThemeMenu(false);
+      }
+    }
 
-  const cycleTheme = () => {
-    setIsRotating(true);
-    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
-    const currentIndex = themes.indexOf(theme);
-    const nextIndex = (currentIndex + 1) % themes.length;
-    setTheme(themes[nextIndex]);
-    setTimeout(() => setIsRotating(false), 300);
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const themeOptions = [
+    { value: 'light', label: 'Light', icon: Sun },
+    { value: 'dark', label: 'Dark', icon: Moon },
+    { value: 'system', label: 'System', icon: Monitor },
+  ] as const;
+
+  const ThemeIcon = resolvedTheme === 'dark' ? Moon : Sun;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-slate-700 dark:bg-slate-900/95 transition-colors duration-300">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 group">
-          <FileText className="h-8 w-8 text-primary-600 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
-          <span className="text-xl font-bold text-gray-900 dark:text-white transition-colors duration-200">SignaSure</span>
+    <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+      <div className="flex h-16 items-center justify-between px-4 md:px-6">
+        <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2">
+          <FileText className="h-6 w-6 text-primary-600" />
+          <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
+            SignaSure
+          </span>
         </Link>
 
-        {/* Desktop navigation */}
-        <div className="hidden md:flex md:items-center md:gap-4">
-          <button
-            onClick={cycleTheme}
-            className={`rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-all duration-200 hover:scale-110 active:scale-95 ${isRotating ? 'rotate-180' : ''}`}
-            title={`Theme: ${theme}`}
-            style={{ transition: 'transform 0.3s ease, background-color 0.2s ease' }}
-          >
-            {themeIcon[theme]}
-          </button>
+        <div className="flex items-center gap-3">
+          {user && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-sm">
+              <Zap className="h-4 w-4 text-primary-600" />
+              <span className="text-slate-600 dark:text-slate-400">
+                {remainingAnalyses}/{dailyLimit} analyses
+              </span>
+            </div>
+          )}
 
-          {isAuthenticated ? (
-            <>
-              <Link href="/dashboard">
-                <Button variant="ghost" className="transition-all duration-200 hover:scale-105">Dashboard</Button>
-              </Link>
-              <div className="flex items-center gap-3">
-                {user?.photoURL && (
+          <div className="relative" ref={themeMenuRef}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowThemeMenu(!showThemeMenu)}
+              className="p-2"
+            >
+              <ThemeIcon className="h-5 w-5" />
+            </Button>
+
+            {showThemeMenu && (
+              <div className="absolute right-0 mt-2 w-36 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1 animate-fade-in">
+                {themeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setTheme(option.value);
+                      setShowThemeMenu(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                      theme === option.value
+                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <option.icon className="h-4 w-4" />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {user && (
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 rounded-full p-1 pr-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                {user.photoURL ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || 'User'}
-                    className="h-8 w-8 rounded-full ring-2 ring-transparent transition-all duration-200 hover:ring-primary-500 hover:scale-110"
+                    className="h-8 w-8 rounded-full"
                   />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary-600" />
+                  </div>
                 )}
-                <Button variant="outline" onClick={logout} className="transition-all duration-200 hover:scale-105">
-                  Sign Out
-                </Button>
-              </div>
-            </>
-          ) : (
-            <Link href="/login">
-              <Button className="transition-all duration-200 hover:scale-105">Sign In</Button>
-            </Link>
+                <ChevronDown className="h-4 w-4 text-slate-500" />
+              </button>
+
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-56 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1 animate-fade-in">
+                  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {user.displayName}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                  <Link
+                    href="/settings"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <User className="h-4 w-4" />
+                    Settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      signOut();
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           )}
-        </div>
-
-        {/* Mobile menu button */}
-        <button
-          className="md:hidden rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-all duration-200 active:scale-95"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          <div className={`transition-transform duration-300 ${mobileMenuOpen ? 'rotate-90' : ''}`}>
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </div>
-        </button>
-      </nav>
-
-      {/* Mobile menu */}
-      <div
-        className={`md:hidden border-t border-gray-200 bg-white dark:border-slate-700 dark:bg-slate-900 overflow-hidden transition-all duration-300 ease-out ${
-          mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-        }`}
-      >
-        <div className="px-4 py-4">
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={cycleTheme}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-all duration-200"
-            >
-              <span className={`transition-transform duration-300 ${isRotating ? 'rotate-180' : ''}`}>
-                {themeIcon[theme]}
-              </span>
-              <span>Theme: {theme}</span>
-            </button>
-
-            {isAuthenticated ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="rounded-lg px-3 py-2 text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-all duration-200"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Dashboard
-                </Link>
-                <Button variant="outline" onClick={logout}>
-                  Sign Out
-                </Button>
-              </>
-            ) : (
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                <Button className="w-full">Sign In</Button>
-              </Link>
-            )}
-          </div>
         </div>
       </div>
     </header>

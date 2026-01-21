@@ -1,61 +1,56 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/stores';
 import {
   getDocuments,
-  getFavoriteDocuments,
   getDocument,
   createDocument,
   updateDocument,
   deleteDocument,
-} from '@/lib/firebase';
-import { Document, DocumentType, DocumentAnalysis } from '@/types';
+  getAnalysis,
+} from '@/lib/firebase/firestore';
+import type {
+  Document,
+  CreateDocumentInput,
+  UpdateDocumentInput,
+  DocumentAnalysis,
+} from '@/types';
+import { useAuth } from './useAuth';
 
-export function useDocuments() {
-  const { user } = useAuthStore();
+export function useDocuments(options?: { favoritesOnly?: boolean; limitCount?: number }) {
+  const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['documents', user?.uid],
-    queryFn: () => (user ? getDocuments(user.uid) : Promise.resolve([])),
+    queryKey: ['documents', user?.uid, options],
+    queryFn: () => {
+      if (!user) return [];
+      return getDocuments(user.uid, options);
+    },
     enabled: !!user,
   });
 }
 
-export function useFavoriteDocuments() {
-  const { user } = useAuthStore();
+export function useDocument(documentId: string | undefined) {
+  const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['documents', 'favorites', user?.uid],
-    queryFn: () => (user ? getFavoriteDocuments(user.uid) : Promise.resolve([])),
-    enabled: !!user,
-  });
-}
-
-export function useDocument(documentId: string | null) {
-  const { user } = useAuthStore();
-
-  return useQuery({
-    queryKey: ['document', documentId, user?.uid],
-    queryFn: () =>
-      user && documentId ? getDocument(user.uid, documentId) : Promise.resolve(null),
+    queryKey: ['document', user?.uid, documentId],
+    queryFn: () => {
+      if (!user || !documentId) return null;
+      return getDocument(user.uid, documentId);
+    },
     enabled: !!user && !!documentId,
   });
 }
 
 export function useCreateDocument() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (data: {
-      fileName: string;
-      type: DocumentType;
-      extractedText?: string;
-      analysis?: DocumentAnalysis;
-    }) => {
-      if (!user) throw new Error('User not authenticated');
-      return createDocument(user.uid, data);
+    mutationFn: (input: CreateDocumentInput) => {
+      if (!user) throw new Error('Not authenticated');
+      return createDocument(user.uid, input);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
@@ -64,42 +59,51 @@ export function useCreateDocument() {
 }
 
 export function useUpdateDocument() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       documentId,
-      data,
+      input,
     }: {
       documentId: string;
-      data: Partial<{
-        customTitle: string | null;
-        isFavorite: boolean;
-        analysis: DocumentAnalysis;
-      }>;
+      input: UpdateDocumentInput;
     }) => {
-      if (!user) throw new Error('User not authenticated');
-      return updateDocument(user.uid, documentId, data);
+      if (!user) throw new Error('Not authenticated');
+      return updateDocument(user.uid, documentId, input);
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (_, { documentId }) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      queryClient.invalidateQueries({ queryKey: ['document', variables.documentId] });
+      queryClient.invalidateQueries({ queryKey: ['document', user?.uid, documentId] });
     },
   });
 }
 
 export function useDeleteDocument() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (documentId: string) => {
-      if (!user) throw new Error('User not authenticated');
+    mutationFn: (documentId: string) => {
+      if (!user) throw new Error('Not authenticated');
       return deleteDocument(user.uid, documentId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
+  });
+}
+
+export function useAnalysis(analysisId: string | undefined) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['analysis', user?.uid, analysisId],
+    queryFn: () => {
+      if (!user || !analysisId) return null;
+      return getAnalysis(user.uid, analysisId);
+    },
+    enabled: !!user && !!analysisId,
   });
 }

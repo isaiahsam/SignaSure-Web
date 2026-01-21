@@ -1,0 +1,949 @@
+# SignaSure Web Application - Complete Rebuild Prompt
+
+Build me a production-ready AI-powered legal document analysis web application called "SignaSure" with the following complete specifications:
+
+---
+
+## TECH STACK (DO NOT CHANGE)
+
+### Core Framework
+- Next.js 14 (App Router, NOT Pages Router)
+- React 18
+- TypeScript (strict mode)
+
+### Styling
+- Tailwind CSS 3.4+
+- Dark mode support via class strategy
+- Custom color palette for risk levels
+
+### Backend & Database
+- Firebase 10+ (Authentication, Firestore)
+- Google Generative AI / Gemini 1.5 Flash API
+
+### State Management
+- Zustand for client state (auth, theme)
+- TanStack React Query 5 for server state (documents, queries)
+
+### OCR & Document Processing
+- Tesseract.js 5 for image OCR (browser-side)
+- pdfjs-dist 4 for PDF text extraction
+
+### UI Components
+- Custom components (NOT shadcn/ui - build from scratch with Tailwind)
+- lucide-react for icons
+- clsx + tailwind-merge for class utilities
+
+---
+
+## ENVIRONMENT VARIABLES REQUIRED
+
+Create a .env.local file with:
+
+```env
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# Gemini API (Server-side only - NO NEXT_PUBLIC prefix)
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+---
+
+## FIREBASE CONFIGURATION
+
+### Firestore Database Schema
+
+```
+users/
+  [userId]/
+    - email: string
+    - displayName: string
+    - photoURL: string
+    - createdAt: Timestamp
+    - preferences: {
+        theme: 'light' | 'dark' | 'system'
+        fontSize: 'small' | 'medium' | 'large'
+      }
+    - hasCompletedOnboarding: boolean
+
+    documents/ (subcollection)
+      [documentId]/
+        - fileName: string
+        - type: 'contract' | 'lease' | 'loan' | 'insurance' | 'employment' | 'other'
+        - uploadDate: Timestamp
+        - extractedText: string (full text from OCR/PDF)
+        - analysis: DocumentAnalysis object (see below)
+        - isFavorite: boolean
+        - customTitle: string | null
+
+    usage/ (subcollection for rate limiting)
+      [YYYY-MM-DD]/
+        - timestamps: Timestamp[] (array of analysis timestamps)
+```
+
+### Firestore Security Rules
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /documents/{documentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /usage/{dateId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
+```
+
+### Firebase Authentication
+- Enable Google Sign-In provider only
+- No email/password authentication
+
+---
+
+## APPLICATION STRUCTURE
+
+```
+src/
+├── app/
+│   ├── page.tsx                     # Landing page (public)
+│   ├── layout.tsx                   # Root layout with all providers
+│   ├── globals.css                  # Global styles, Tailwind, animations
+│   │
+│   ├── (auth)/
+│   │   └── login/
+│   │       └── page.tsx             # Login page with Google Sign-In
+│   │
+│   ├── (dashboard)/
+│   │   ├── layout.tsx               # Dashboard layout with auth guard, sidebar, header
+│   │   ├── dashboard/
+│   │   │   └── page.tsx             # Main dashboard overview
+│   │   ├── upload/
+│   │   │   └── page.tsx             # Document upload and analysis
+│   │   ├── analysis/
+│   │   │   └── [id]/
+│   │   │       └── page.tsx         # Analysis results detail view
+│   │   ├── history/
+│   │   │   └── page.tsx             # All documents with search/filter
+│   │   └── settings/
+│   │       └── page.tsx             # User preferences
+│   │
+│   └── api/
+│       └── analyze/
+│           └── route.ts             # POST endpoint for Gemini analysis
+│
+├── components/
+│   ├── ui/
+│   │   ├── button.tsx               # Button with variants (primary, secondary, outline, ghost)
+│   │   ├── card.tsx                 # Card container component
+│   │   ├── input.tsx                # Text input component
+│   │   ├── select.tsx               # Select dropdown component
+│   │   ├── tabs.tsx                 # Tabs navigation component
+│   │   ├── toast.tsx                # Toast notification system
+│   │   ├── skeleton.tsx             # Loading skeleton placeholder
+│   │   ├── error-boundary.tsx       # React error boundary
+│   │   └── index.ts                 # Barrel export
+│   │
+│   ├── layout/
+│   │   ├── header.tsx               # Top navigation bar
+│   │   ├── sidebar.tsx              # Desktop sidebar + mobile bottom nav
+│   │   └── footer.tsx               # Footer component
+│   │
+│   ├── auth/
+│   │   ├── google-sign-in-button.tsx
+│   │   └── auth-guard.tsx           # Protected route wrapper
+│   │
+│   ├── documents/
+│   │   ├── upload-dropzone.tsx      # Drag & drop file upload
+│   │   ├── document-card.tsx        # Document list item card
+│   │   ├── document-type-select.tsx # Document type dropdown
+│   │   └── index.ts
+│   │
+│   └── analysis/
+│       ├── risk-score-card.tsx      # Visual risk score display
+│       ├── flags-tab.tsx            # Flagged issues list
+│       ├── clauses-tab.tsx          # Important clauses list
+│       ├── summary-card.tsx         # Summary and recommendations
+│       └── index.ts
+│
+├── lib/
+│   ├── firebase/
+│   │   ├── config.ts                # Firebase app initialization
+│   │   ├── auth.ts                  # Auth functions (signIn, signOut, onAuthChange)
+│   │   ├── firestore.ts             # All Firestore operations
+│   │   └── index.ts
+│   │
+│   ├── gemini/
+│   │   ├── client.ts                # GeminiClient class for API calls
+│   │   ├── prompts.ts               # Analysis prompt and JSON schema
+│   │   └── index.ts
+│   │
+│   ├── ocr/
+│   │   ├── tesseract.ts             # OCR functions for images and PDFs
+│   │   └── index.ts
+│   │
+│   └── utils.ts                     # Utility functions (cn, formatDate)
+│
+├── hooks/
+│   ├── useAuth.ts                   # Auth state and functions
+│   ├── useDocuments.ts              # Document CRUD with React Query
+│   ├── useRateLimit.ts              # Rate limit checking
+│   └── index.ts
+│
+├── stores/
+│   ├── auth-store.ts                # Zustand auth store
+│   ├── theme-store.ts               # Zustand theme store
+│   └── index.ts
+│
+└── types/
+    ├── analysis.ts                  # Analysis types and helpers
+    ├── document.ts                  # Document types
+    └── index.ts
+```
+
+---
+
+## TYPE DEFINITIONS
+
+### Document Types (src/types/document.ts)
+
+```typescript
+export type DocumentType = 'contract' | 'lease' | 'loan' | 'insurance' | 'employment' | 'other';
+
+export interface Document {
+  id: string;
+  fileName: string;
+  type: DocumentType;
+  uploadDate: Date;
+  extractedText: string;
+  analysis: DocumentAnalysis | null;
+  isFavorite: boolean;
+  customTitle: string | null;
+}
+```
+
+### Analysis Types (src/types/analysis.ts)
+
+```typescript
+export type FlagType =
+  | 'hiddenFee'
+  | 'unfavorableTerm'
+  | 'missingClause'
+  | 'loophole'
+  | 'automaticRenewal'
+  | 'penaltyClause'
+  | 'limitedLiability'
+  | 'other';
+
+export type FlagSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type ClauseImportance = 'low' | 'medium' | 'high' | 'critical';
+
+export type FairnessAssessment =
+  | 'Fair and Balanced'
+  | 'Slightly Favors Other Party'
+  | 'Moderately Unfavorable to You'
+  | 'Heavily Favors Other Party'
+  | 'Potentially Predatory';
+
+export interface AnalysisFlag {
+  type: FlagType;
+  title: string;
+  description: string;
+  severity: FlagSeverity;
+  highlightedText: string;
+}
+
+export interface ImportantClause {
+  title: string;
+  originalText: string;
+  simplifiedExplanation: string;
+  importance: ClauseImportance;
+}
+
+export interface DocumentAnalysis {
+  documentTitle: string;
+  flags: AnalysisFlag[];
+  importantClauses: ImportantClause[];
+  riskScore: number; // 0.0 to 10.0
+  summary: string;
+  recommendations: string[];
+  fairnessAssessment: FairnessAssessment;
+}
+```
+
+### Helper Functions for Analysis Types
+
+```typescript
+// Calculate flag priority score (higher = more urgent)
+export function getFlagPriorityScore(flag: AnalysisFlag): number {
+  const severityScores = { critical: 100, high: 70, medium: 40, low: 10 };
+  const typeBonus = {
+    hiddenFee: 15,
+    loophole: 15,
+    penaltyClause: 12,
+    unfavorableTerm: 10,
+    limitedLiability: 8,
+    automaticRenewal: 7,
+    missingClause: 5,
+    other: 0
+  };
+  return severityScores[flag.severity] + typeBonus[flag.type];
+}
+
+// Get action label based on priority
+export function getFlagActionLabel(priorityScore: number): string {
+  if (priorityScore >= 100) return 'ADDRESS IMMEDIATELY';
+  if (priorityScore >= 80) return 'DISCUSS WITH LAWYER';
+  if (priorityScore >= 50) return 'NEGOTIATE THIS';
+  return 'BE AWARE';
+}
+
+// Get priority rank
+export function getFlagPriorityRank(priorityScore: number): string {
+  if (priorityScore >= 100) return 'P1 - CRITICAL';
+  if (priorityScore >= 70) return 'P2 - HIGH';
+  if (priorityScore >= 40) return 'P3 - MEDIUM';
+  return 'P4 - LOW';
+}
+```
+
+---
+
+## GEMINI AI INTEGRATION
+
+### API Configuration
+- Model: gemini-1.5-flash
+- Endpoint: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent
+- Temperature: 0.1 (very deterministic for consistent analysis)
+- Max output tokens: 4000
+- Response format: JSON with strict schema
+
+### Analysis Prompt (CRITICAL - USE EXACTLY)
+
+```typescript
+export function buildAnalysisPrompt(documentText: string, documentType: DocumentType): string {
+  return `You are an expert legal document analyst. Analyze the following ${documentType} document and identify potential issues, hidden fees, unfavorable terms, loopholes, and important clauses that the user should be aware of before signing.
+
+CRITICAL INSTRUCTIONS:
+1. ONLY flag ACTUAL problems found in the document - do NOT create hypothetical issues
+2. Be BALANCED - most standard documents should score between 2-4 on risk
+3. Use SIMPLE, PLAIN ENGLISH that a 10-year-old could understand - NO legal jargon
+4. Focus on what ACTUALLY matters to the person signing
+5. If the document is generally fair, say so - don't manufacture problems
+
+SCORING GUIDELINES:
+- 0-2: Excellent terms, very favorable or standard fair agreement
+- 3-4: Standard agreement with typical terms (MOST documents should be here)
+- 5-6: Some concerns but still reasonable
+- 7-8: Significant issues that need attention
+- 9-10: Severe problems, do not sign without legal review
+
+DOCUMENT TEXT:
+${documentText}
+
+Analyze this document and return a JSON response with the following structure:
+{
+  "documentTitle": "Brief descriptive title",
+  "flags": [
+    {
+      "type": "hiddenFee|unfavorableTerm|missingClause|loophole|automaticRenewal|penaltyClause|limitedLiability|other",
+      "title": "Short, simple title (no jargon)",
+      "description": "Plain English explanation of why this matters",
+      "severity": "low|medium|high|critical",
+      "highlightedText": "Exact quote from the document"
+    }
+  ],
+  "importantClauses": [
+    {
+      "title": "Clause name",
+      "originalText": "Exact text from document",
+      "simplifiedExplanation": "What this means in plain English",
+      "importance": "low|medium|high|critical"
+    }
+  ],
+  "riskScore": 0.0-10.0,
+  "summary": "2-3 sentence overview in plain English",
+  "recommendations": ["Action item 1", "Action item 2"],
+  "fairnessAssessment": "Fair and Balanced|Slightly Favors Other Party|Moderately Unfavorable to You|Heavily Favors Other Party|Potentially Predatory"
+}`;
+}
+```
+
+### JSON Schema for Gemini Response
+
+```typescript
+export const analysisResponseSchema = {
+  type: "object",
+  properties: {
+    documentTitle: { type: "string" },
+    flags: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["hiddenFee", "unfavorableTerm", "missingClause", "loophole", "automaticRenewal", "penaltyClause", "limitedLiability", "other"] },
+          title: { type: "string" },
+          description: { type: "string" },
+          severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+          highlightedText: { type: "string" }
+        },
+        required: ["type", "title", "description", "severity", "highlightedText"]
+      }
+    },
+    importantClauses: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          originalText: { type: "string" },
+          simplifiedExplanation: { type: "string" },
+          importance: { type: "string", enum: ["low", "medium", "high", "critical"] }
+        },
+        required: ["title", "originalText", "simplifiedExplanation", "importance"]
+      }
+    },
+    riskScore: { type: "number" },
+    summary: { type: "string" },
+    recommendations: { type: "array", items: { type: "string" } },
+    fairnessAssessment: { type: "string", enum: ["Fair and Balanced", "Slightly Favors Other Party", "Moderately Unfavorable to You", "Heavily Favors Other Party", "Potentially Predatory"] }
+  },
+  required: ["documentTitle", "flags", "importantClauses", "riskScore", "summary", "recommendations", "fairnessAssessment"]
+};
+```
+
+### GeminiClient Class
+
+```typescript
+export class GeminiClient {
+  private apiKey: string;
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  async analyzeDocument(text: string, documentType: DocumentType): Promise<DocumentAnalysis> {
+    if (!text || text.trim().length < 50) {
+      throw new Error('Document text is too short for analysis');
+    }
+
+    const prompt = buildAnalysisPrompt(text, documentType);
+
+    const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          topP: 0.8,
+          topK: 20,
+          maxOutputTokens: 4000,
+          responseMimeType: 'application/json',
+          responseSchema: analysisResponseSchema
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const status = response.status;
+      if (status === 401 || status === 403) throw new Error('AI service authentication failed');
+      if (status === 429) throw new Error('API rate limit exceeded. Please try again later.');
+      if (status >= 500) throw new Error('AI service temporarily unavailable');
+      throw new Error('Failed to analyze document');
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!resultText) throw new Error('No analysis result received');
+
+    // Parse JSON, removing any markdown code blocks
+    const cleanJson = resultText.replace(/```json\n?|\n?```/g, '').trim();
+    return JSON.parse(cleanJson) as DocumentAnalysis;
+  }
+}
+```
+
+---
+
+## OCR IMPLEMENTATION
+
+### Tesseract.js for Images
+
+```typescript
+import { createWorker } from 'tesseract.js';
+
+export async function extractTextFromImage(file: File): Promise<string> {
+  const worker = await createWorker('eng');
+  const { data: { text } } = await worker.recognize(file);
+  await worker.terminate();
+  return text;
+}
+```
+
+### PDF.js for PDF Text Extraction
+
+```typescript
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker source (important for Next.js)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+export async function extractTextFromPDF(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  let fullText = '';
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(' ');
+    fullText += pageText + '\n';
+  }
+
+  // If extracted text is too short, it's likely a scanned PDF - use OCR
+  if (fullText.trim().length < 50) {
+    return await extractTextFromScannedPDF(file);
+  }
+
+  return fullText;
+}
+
+async function extractTextFromScannedPDF(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  const worker = await createWorker('eng');
+  let fullText = '';
+
+  // Process first 5 pages max for performance
+  const maxPages = Math.min(pdf.numPages, 5);
+
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2.0 });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({
+      canvasContext: canvas.getContext('2d')!,
+      viewport
+    }).promise;
+
+    const { data: { text } } = await worker.recognize(canvas);
+    fullText += text + '\n';
+  }
+
+  await worker.terminate();
+  return fullText;
+}
+```
+
+### Main Extraction Function
+
+```typescript
+export async function extractText(file: File): Promise<string> {
+  const fileType = file.type;
+  const fileName = file.name.toLowerCase();
+
+  if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+    return extractTextFromPDF(file);
+  }
+
+  if (fileType.startsWith('image/')) {
+    return extractTextFromImage(file);
+  }
+
+  throw new Error('Unsupported file type. Please upload a PDF or image file.');
+}
+```
+
+---
+
+## RATE LIMITING
+
+### Constants
+- MAX_ANALYSES_PER_HOUR = 5
+- MAX_ANALYSES_PER_DAY = 20
+
+### Rate Limit Logic
+
+```typescript
+export function calculateRateLimitStatus(timestamps: Date[]): RateLimitStatus {
+  const now = new Date();
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const usedThisHour = timestamps.filter(t => t > oneHourAgo).length;
+  const usedToday = timestamps.filter(t => t > startOfDay).length;
+
+  if (usedThisHour >= MAX_ANALYSES_PER_HOUR) {
+    const oldestInHour = timestamps
+      .filter(t => t > oneHourAgo)
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    const resetTime = new Date(oldestInHour.getTime() + 60 * 60 * 1000);
+
+    return {
+      canProceed: false,
+      error: `Hourly limit reached. Resets at ${formatTime(resetTime)}`,
+      remainingThisHour: 0,
+      remainingToday: MAX_ANALYSES_PER_DAY - usedToday
+    };
+  }
+
+  if (usedToday >= MAX_ANALYSES_PER_DAY) {
+    return {
+      canProceed: false,
+      error: 'Daily limit reached. Please try again tomorrow.',
+      remainingThisHour: 0,
+      remainingToday: 0
+    };
+  }
+
+  return {
+    canProceed: true,
+    remainingThisHour: MAX_ANALYSES_PER_HOUR - usedThisHour,
+    remainingToday: MAX_ANALYSES_PER_DAY - usedToday
+  };
+}
+```
+
+---
+
+## AUTHENTICATION FLOW
+
+### Sign In with Google
+
+```typescript
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+
+export async function signInWithGoogle(): Promise<User> {
+  const provider = new GoogleAuthProvider();
+  const result = await signInWithPopup(auth, provider);
+  const user = result.user;
+
+  // Check if user exists, create if not
+  const userRef = doc(db, 'users', user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    await setDoc(userRef, {
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      createdAt: serverTimestamp(),
+      preferences: {
+        theme: 'system',
+        fontSize: 'medium'
+      },
+      hasCompletedOnboarding: false
+    });
+  }
+
+  return user;
+}
+```
+
+### Auth State Listener
+
+```typescript
+import { onAuthStateChanged } from 'firebase/auth';
+
+export function onAuthChange(callback: (user: User | null) => void): () => void {
+  return onAuthStateChanged(auth, callback);
+}
+```
+
+---
+
+## UI COMPONENTS STYLING
+
+### Risk Score Color Mapping
+
+```typescript
+export function getRiskColor(score: number): string {
+  if (score <= 2) return 'text-green-500';
+  if (score <= 4) return 'text-blue-500';
+  if (score <= 6) return 'text-yellow-500';
+  if (score <= 8) return 'text-orange-500';
+  return 'text-red-500';
+}
+
+export function getRiskBgColor(score: number): string {
+  if (score <= 2) return 'bg-green-500';
+  if (score <= 4) return 'bg-blue-500';
+  if (score <= 6) return 'bg-yellow-500';
+  if (score <= 8) return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+export function getRiskLabel(score: number): string {
+  if (score <= 2) return 'Low Risk';
+  if (score <= 4) return 'Moderate Risk';
+  if (score <= 6) return 'Elevated Risk';
+  if (score <= 8) return 'High Risk';
+  return 'Critical Risk';
+}
+```
+
+### Severity Badge Colors
+
+```typescript
+export function getSeverityColor(severity: FlagSeverity): string {
+  switch (severity) {
+    case 'low': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    case 'medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+    case 'high': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+    case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+  }
+}
+```
+
+---
+
+## TAILWIND CONFIGURATION
+
+```typescript
+// tailwind.config.ts
+import type { Config } from 'tailwindcss';
+
+const config: Config = {
+  darkMode: 'class',
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#60a5fa',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#1e3a8a',
+          950: '#172554',
+        },
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.3s ease-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+        'slide-down': 'slideDown 0.3s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideDown: {
+          '0%': { transform: 'translateY(-10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+      },
+    },
+  },
+  plugins: [],
+};
+
+export default config;
+```
+
+---
+
+## NEXT.JS CONFIGURATION
+
+```javascript
+// next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      canvas: false,
+      encoding: false,
+    };
+    return config;
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@tanstack/react-query', 'firebase'],
+  },
+};
+
+module.exports = nextConfig;
+```
+
+---
+
+## PACKAGE.JSON DEPENDENCIES
+
+```json
+{
+  "name": "signasure-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbo",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.24.0",
+    "clsx": "^2.1.0",
+    "firebase": "^10.8.0",
+    "lucide-react": "^0.344.0",
+    "next": "14.2.0",
+    "pdfjs-dist": "^4.0.379",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-dropzone": "^14.2.3",
+    "tailwind-merge": "^2.2.1",
+    "tesseract.js": "^5.0.5",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "14.2.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3"
+  }
+}
+```
+
+---
+
+## CORE FEATURES TO IMPLEMENT
+
+### 1. Landing Page (/)
+- Hero section with app description
+- Feature highlights (AI analysis, fraud detection, plain English)
+- Call-to-action to sign in
+- Modern, clean design with animations
+
+### 2. Login Page (/login)
+- Google Sign-In button
+- Clean, centered layout
+- Redirect to dashboard after login
+
+### 3. Dashboard (/dashboard)
+- Welcome message with user name
+- Stats cards (total documents, favorites, remaining analyses)
+- Recent documents list (last 5)
+- Favorite documents section
+- Quick upload button
+
+### 4. Upload Page (/upload)
+- Drag & drop zone for files
+- Supported formats: PDF, PNG, JPG, JPEG, GIF, WEBP
+- Max file size: 10MB
+- Document type selector
+- Progress indicator during analysis
+- Rate limit display
+
+### 5. Analysis Detail Page (/analysis/[id])
+- Risk score visualization (circular gauge or progress bar)
+- Risk level badge and signing recommendation
+- Tabbed interface:
+  - Summary tab: Overview, fairness assessment, recommendations
+  - Flags tab: All issues sorted by priority
+  - Clauses tab: Important clauses with explanations
+- Favorite toggle
+- Custom title editing
+- Back to dashboard button
+
+### 6. History Page (/history)
+- Search by document name
+- Filter by document type
+- Filter by favorites only
+- Sort by date or risk score
+- Document cards with quick actions
+- Delete confirmation modal
+
+### 7. Settings Page (/settings)
+- Theme preference (light/dark/system)
+- Font size preference
+- Account info display
+- Sign out button
+
+---
+
+## MOBILE RESPONSIVENESS
+
+### Desktop (lg: 1024px+)
+- Fixed left sidebar navigation
+- Header with user avatar and settings
+- 2-3 column layouts for cards
+
+### Mobile (< 1024px)
+- Bottom navigation bar (fixed)
+- Full-width cards
+- Single column layouts
+- Hamburger menu for additional options
+
+---
+
+## ERROR HANDLING REQUIREMENTS
+
+1. **Global Error Boundary** - Catch React rendering errors
+2. **API Error Handling** - User-friendly messages for all API errors
+3. **Form Validation** - Clear validation messages
+4. **Loading States** - Skeleton loaders and spinners
+5. **Empty States** - Helpful messages when no data
+6. **Toast Notifications** - Success/error feedback
+
+---
+
+## IMPORTANT IMPLEMENTATION NOTES
+
+1. **Client Components**: Mark components that use hooks with 'use client'
+2. **Server Components**: Keep API route handlers server-only
+3. **Environment Variables**: GEMINI_API_KEY must NOT have NEXT_PUBLIC prefix
+4. **Firebase Init**: Check `typeof window` before initializing client-side
+5. **PDF Worker**: Set pdfjsLib.GlobalWorkerOptions.workerSrc properly
+6. **Hydration**: Ensure server/client rendering matches
+
+---
+
+## LEGAL DISCLAIMER (Display in App)
+
+"SignaSure provides AI-powered document analysis for informational purposes only. This is not legal advice. Always consult with a qualified attorney for legal matters. AI analysis may not catch all issues and should not replace professional legal review for important documents."
+
+---
+
+Build this complete application with all the features described. Ensure it is production-ready, handles all edge cases, and provides an excellent user experience. The application should work without any white screen errors or runtime issues.

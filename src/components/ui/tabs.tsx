@@ -3,30 +3,42 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-interface TabsContextType {
+interface TabsContextValue {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (value: string) => void;
 }
 
-const TabsContext = createContext<TabsContextType | null>(null);
+const TabsContext = createContext<TabsContextValue | undefined>(undefined);
+
+function useTabs() {
+  const context = useContext(TabsContext);
+  if (!context) {
+    throw new Error('Tabs components must be used within a Tabs provider');
+  }
+  return context;
+}
 
 interface TabsProps {
   defaultValue: string;
+  value?: string;
+  onChange?: (value: string) => void;
   children: ReactNode;
   className?: string;
-  onValueChange?: (value: string) => void;
 }
 
-export function Tabs({ defaultValue, children, className, onValueChange }: TabsProps) {
-  const [activeTab, setActiveTab] = useState(defaultValue);
+function Tabs({ defaultValue, value, onChange, children, className }: TabsProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const activeTab = value ?? internalValue;
 
-  const handleSetActiveTab = (tab: string) => {
-    setActiveTab(tab);
-    onValueChange?.(tab);
+  const setActiveTab = (newValue: string) => {
+    if (!value) {
+      setInternalValue(newValue);
+    }
+    onChange?.(newValue);
   };
 
   return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab: handleSetActiveTab }}>
+    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
       <div className={className}>{children}</div>
     </TabsContext.Provider>
   );
@@ -37,13 +49,14 @@ interface TabsListProps {
   className?: string;
 }
 
-export function TabsList({ children, className }: TabsListProps) {
+function TabsList({ children, className }: TabsListProps) {
   return (
     <div
       className={cn(
-        'inline-flex h-10 items-center justify-center rounded-lg bg-gray-100 p-1 dark:bg-slate-800',
+        'flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg',
         className
       )}
+      role="tablist"
     >
       {children}
     </div>
@@ -54,25 +67,28 @@ interface TabsTriggerProps {
   value: string;
   children: ReactNode;
   className?: string;
+  disabled?: boolean;
 }
 
-export function TabsTrigger({ value, children, className }: TabsTriggerProps) {
-  const context = useContext(TabsContext);
-  if (!context) throw new Error('TabsTrigger must be used within Tabs');
-
-  const { activeTab, setActiveTab } = context;
+function TabsTrigger({ value, children, className, disabled }: TabsTriggerProps) {
+  const { activeTab, setActiveTab } = useTabs();
   const isActive = activeTab === value;
 
   return (
     <button
+      role="tab"
+      aria-selected={isActive}
+      disabled={disabled}
+      onClick={() => setActiveTab(value)}
       className={cn(
-        'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+        'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200',
+        'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
         isActive
-          ? 'bg-white text-gray-900 shadow-sm dark:bg-slate-700 dark:text-slate-100'
-          : 'text-gray-600 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100',
+          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100',
         className
       )}
-      onClick={() => setActiveTab(value)}
     >
       {children}
     </button>
@@ -85,13 +101,21 @@ interface TabsContentProps {
   className?: string;
 }
 
-export function TabsContent({ value, children, className }: TabsContentProps) {
-  const context = useContext(TabsContext);
-  if (!context) throw new Error('TabsContent must be used within Tabs');
+function TabsContent({ value, children, className }: TabsContentProps) {
+  const { activeTab } = useTabs();
 
-  const { activeTab } = context;
+  if (activeTab !== value) {
+    return null;
+  }
 
-  if (activeTab !== value) return null;
-
-  return <div className={cn('mt-4', className)}>{children}</div>;
+  return (
+    <div
+      role="tabpanel"
+      className={cn('mt-4 animate-fade-in', className)}
+    >
+      {children}
+    </div>
+  );
 }
+
+export { Tabs, TabsList, TabsTrigger, TabsContent };

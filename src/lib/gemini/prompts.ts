@@ -1,96 +1,96 @@
-import { DocumentType } from '@/types';
+import type { DocumentType } from '@/types';
 
-export function buildAnalysisPrompt(text: string, documentType: DocumentType): string {
-  return `You are a legal expert AI that analyzes documents for potential issues, loopholes, and unfavorable terms.
+export function buildAnalysisPrompt(
+  documentText: string,
+  documentType: DocumentType
+): string {
+  return `You are an expert legal document analyst. Analyze the following ${documentType} document and provide a comprehensive assessment. Your analysis should be helpful for someone who is not a lawyer and needs to understand the key points, risks, and important clauses in simple, plain English.
 
-Analyze the following ${documentType} document for potential issues, loopholes, and unfavorable terms.
+DOCUMENT TEXT:
+${documentText}
 
-Document text:
-"${text}"
+INSTRUCTIONS:
+1. Calculate a risk score from 0-100 (0 = very safe, 100 = very risky)
+2. Provide a clear summary of what this document is about
+3. Identify any flags (potential issues or concerns) with severity levels
+4. Extract important clauses and explain them in simple terms
+5. Give practical recommendations
+6. Assess the overall fairness of the document
 
-CRITICAL INSTRUCTIONS:
-1. Respond with ONLY valid JSON. Do NOT use markdown code blocks.
-2. ONLY flag ACTUAL problems that exist in the document text - do not flag hypothetical issues or missing clauses
-3. Be BALANCED and FAIR - Most documents are reasonable. Only flag terms that are genuinely problematic or unusual
-4. Risk scoring should be CONSERVATIVE:
-   - Most standard documents should score 2-4 (low to moderate)
-   - Only flag serious issues that a reasonable person would genuinely be concerned about
-   - Reserve scores above 7 for truly predatory or dangerous terms
-5. DO NOT flag standard legal boilerplate as problematic (e.g., normal liability clauses, standard warranties, typical termination terms)
-6. Recommendations should ONLY be about specific actionable items in THIS document
-7. If the document is generally fair and standard, reflect that in your analysis - don't manufacture problems
-8. USE SIMPLE LANGUAGE: Write flag titles like you're explaining to a 10-year-old. No legal jargon, no fancy words. Use everyday language that anyone can understand.
-
-Provide analysis in this JSON format:
-
+Respond with a valid JSON object following this exact structure:
 {
-  "documentTitle": "Short descriptive title (3-6 words) based on document content (e.g., 'Apartment Lease Agreement', 'Employment Contract - Tech Corp', 'Car Loan Agreement')",
+  "riskScore": <number 0-100>,
+  "summary": "<2-3 sentence summary of the document in plain English>",
   "flags": [
     {
-      "type": "hiddenFee|unfavorableTerm|missingClause|loophole|automaticRenewal|penaltyClause|limitedLiability|other",
-      "title": "VERY SIMPLE title using everyday words a 10-year-old would understand (e.g., 'Hidden Extra Fees', 'You Can't Cancel Easily', 'They Can Change Terms Anytime', 'You Pay If You're Late', 'Hard to Get Your Money Back'). NO legal jargon or complex words.",
-      "description": "Detailed explanation of why this specific term is problematic",
-      "severity": "low|medium|high|critical",
-      "highlightedText": "The exact text from the document that contains the issue"
+      "id": "<unique id>",
+      "type": "<one of: liability, termination, payment, intellectual_property, confidentiality, dispute, renewal, penalty, obligation, other>",
+      "severity": "<one of: low, medium, high, critical>",
+      "title": "<short title>",
+      "description": "<clear explanation of the concern in plain English>",
+      "originalText": "<relevant text from document if applicable>",
+      "recommendation": "<what to do about this>"
     }
   ],
   "importantClauses": [
     {
-      "title": "Clause name",
-      "originalText": "Original complex legal text",
-      "simplifiedExplanation": "Simple explanation in plain English",
-      "importance": "low|medium|high|critical"
+      "id": "<unique id>",
+      "title": "<clause title>",
+      "originalText": "<the actual clause text>",
+      "simplifiedExplanation": "<what this means in very simple terms, as if explaining to a friend>",
+      "importance": "<one of: low, medium, high>"
     }
   ],
-  "riskScore": 0.0-10.0,
-  "summary": "Balanced summary focusing on actual issues found",
   "recommendations": [
-    "Specific actionable steps about THIS document only (e.g., 'Negotiate X', 'Request clarification on Y', 'Consider adding Z clause')"
+    "<specific, actionable recommendation>"
   ],
-  "fairnessAssessment": "One of: 'Fair and Balanced' | 'Slightly Favors Other Party' | 'Moderately Unfavorable to You' | 'Heavily Favors Other Party' | 'Potentially Predatory'"
+  "fairnessAssessment": "<overall assessment of how fair/balanced this document is, written in plain English>"
 }
 
-Risk Score Guidelines (BE CONSERVATIVE):
-- 0-2: Excellent terms, very favorable or standard
-- 3-4: Standard and acceptable terms (MOST documents should be here)
-- 5-6: Some concerns worth noting, but still reasonable
-- 7-8: Significant issues that need attention
-- 9-10: Severe problems, do not sign without legal review
-
-Fairness Assessment Guidelines:
-Evaluate whether the contract is balanced or favors one party:
-- "Fair and Balanced": Terms are equitable for both parties, standard protections for both sides
-- "Slightly Favors Other Party": Minor advantages for the other party, still acceptable
-- "Moderately Unfavorable to You": Several terms that disadvantage you, renegotiation recommended
-- "Heavily Favors Other Party": Significant imbalance, many one-sided terms, serious concerns
-- "Potentially Predatory": Extremely unfair, appears designed to trap or exploit you
-
-Consider:
-- Do both parties have similar rights/obligations?
-- Are termination clauses equal for both parties?
-- Who bears most risks and liabilities?
-- Are there hidden fees or penalties only for one party?
-- Does one party have excessive control or unilateral rights?
-
-Remember: Most legitimate business documents are fair and should score 2-4. Only raise flags for genuinely problematic terms.`;
+IMPORTANT:
+- Use plain, simple English that anyone can understand
+- Avoid legal jargon unless you explain it
+- Be specific about what parts of the document you're referencing
+- Focus on practical implications for the person signing
+- If something is unusual or concerning, explain why clearly`;
 }
 
-export const geminiResponseSchema = {
+export const analysisResponseSchema = {
   type: 'object',
   properties: {
-    documentTitle: { type: 'string' },
+    riskScore: { type: 'number', minimum: 0, maximum: 100 },
+    summary: { type: 'string' },
     flags: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
-          type: { type: 'string' },
+          id: { type: 'string' },
+          type: {
+            type: 'string',
+            enum: [
+              'liability',
+              'termination',
+              'payment',
+              'intellectual_property',
+              'confidentiality',
+              'dispute',
+              'renewal',
+              'penalty',
+              'obligation',
+              'other',
+            ],
+          },
+          severity: {
+            type: 'string',
+            enum: ['low', 'medium', 'high', 'critical'],
+          },
           title: { type: 'string' },
           description: { type: 'string' },
-          severity: { type: 'string' },
-          highlightedText: { type: 'string' },
+          originalText: { type: 'string' },
+          recommendation: { type: 'string' },
         },
-        required: ['type', 'title', 'description', 'severity', 'highlightedText'],
+        required: ['id', 'type', 'severity', 'title', 'description'],
       },
     },
     importantClauses: {
@@ -98,16 +98,18 @@ export const geminiResponseSchema = {
       items: {
         type: 'object',
         properties: {
+          id: { type: 'string' },
           title: { type: 'string' },
           originalText: { type: 'string' },
           simplifiedExplanation: { type: 'string' },
-          importance: { type: 'string' },
+          importance: {
+            type: 'string',
+            enum: ['low', 'medium', 'high'],
+          },
         },
-        required: ['title', 'originalText', 'simplifiedExplanation', 'importance'],
+        required: ['id', 'title', 'originalText', 'simplifiedExplanation', 'importance'],
       },
     },
-    riskScore: { type: 'number' },
-    summary: { type: 'string' },
     recommendations: {
       type: 'array',
       items: { type: 'string' },
@@ -115,11 +117,10 @@ export const geminiResponseSchema = {
     fairnessAssessment: { type: 'string' },
   },
   required: [
-    'documentTitle',
-    'flags',
-    'importantClauses',
     'riskScore',
     'summary',
+    'flags',
+    'importantClauses',
     'recommendations',
     'fairnessAssessment',
   ],

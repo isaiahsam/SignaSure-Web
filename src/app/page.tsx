@@ -3,194 +3,244 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { useAuth } from '@/hooks';
-import { Header } from '@/components/layout';
-import { Footer } from '@/components/layout';
-import { GoogleSignInButton } from '@/components/auth';
-import { Button } from '@/components/ui';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Footer } from '@/components/layout/footer';
 import {
   FileText,
   Shield,
   Zap,
-  Eye,
   CheckCircle,
   ArrowRight,
+  Upload,
+  Brain,
+  FileSearch,
 } from 'lucide-react';
 
 export default function LandingPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!loading && user) {
       router.push('/dashboard');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [user, loading, router]);
 
-  const features = [
-    {
-      icon: Shield,
-      title: 'Risk Assessment',
-      description: 'Get a clear risk score and signing recommendation for any legal document.',
-    },
-    {
-      icon: Eye,
-      title: 'Hidden Fee Detection',
-      description: 'AI identifies hidden fees, penalties, and unfavorable terms you might miss.',
-    },
-    {
-      icon: Zap,
-      title: 'Plain English',
-      description: 'Complex legal jargon translated into simple terms anyone can understand.',
-    },
-    {
-      icon: CheckCircle,
-      title: 'Action Items',
-      description: 'Prioritized list of issues with specific recommendations for each.',
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-white dark:from-slate-900 dark:to-slate-800">
-      <Header />
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 md:px-6">
+          <Link href="/" className="flex items-center gap-2">
+            <FileText className="h-6 w-6 text-primary-600" />
+            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              SignaSure
+            </span>
+          </Link>
 
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary-100 px-4 py-1.5 text-sm font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 animate-fade-in-down">
-              <FileText className="h-4 w-4" />
+          <Link href="/login">
+            <Button>Get Started</Button>
+          </Link>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="flex-1 flex items-center py-16 md:py-24 px-4">
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="text-center max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 text-sm font-medium mb-6">
+              <Zap className="h-4 w-4" />
               AI-Powered Document Analysis
             </div>
 
-            <h1 className="mt-6 text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl dark:text-white animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              Understand Any Legal Document
-              <br />
-              <span className="text-primary-600">Before You Sign</span>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-slate-100 mb-6">
+              Understand Your Contracts{' '}
+              <span className="text-primary-600">in Plain English</span>
             </h1>
 
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600 dark:text-slate-300 opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
-              Upload contracts, leases, or agreements and get instant AI analysis.
-              Identify hidden fees, unfavorable terms, and potential risks in plain English.
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-8 max-w-2xl mx-auto">
+              Upload any legal document and get instant AI analysis. Identify risks,
+              understand complex clauses, and make informed decisions before you sign.
             </p>
 
-            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center opacity-0 animate-fade-in-up" style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}>
-              {isAuthenticated ? (
-                <Link href="/dashboard">
-                  <Button size="lg" className="gap-2 group">
-                    Go to Dashboard
-                    <ArrowRight className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-1" />
-                  </Button>
-                </Link>
-              ) : (
-                <div className="w-full max-w-xs">
-                  <GoogleSignInButton />
-                </div>
-              )}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/login">
+                <Button size="lg" rightIcon={<ArrowRight className="h-5 w-5" />}>
+                  Start Analyzing Free
+                </Button>
+              </Link>
+              <Button variant="outline" size="lg">
+                Learn More
+              </Button>
+            </div>
+
+            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+              10 free analyses per day. No credit card required.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-16 md:py-24 px-4 bg-slate-50 dark:bg-slate-800/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+              How It Works
+            </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400">
+              Get document insights in three simple steps
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-sm border border-slate-200 dark:border-slate-700">
+              <div className="p-4 rounded-xl bg-primary-100 dark:bg-primary-900/30 w-fit mb-6">
+                <Upload className="h-8 w-8 text-primary-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                1. Upload Your Document
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400">
+                Upload a PDF or image of your contract. We support leases, employment
+                contracts, NDAs, and more.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-sm border border-slate-200 dark:border-slate-700">
+              <div className="p-4 rounded-xl bg-purple-100 dark:bg-purple-900/30 w-fit mb-6">
+                <Brain className="h-8 w-8 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                2. AI Analysis
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400">
+                Our AI reads and analyzes every clause, identifying risks, obligations,
+                and important terms.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-sm border border-slate-200 dark:border-slate-700">
+              <div className="p-4 rounded-xl bg-green-100 dark:bg-green-900/30 w-fit mb-6">
+                <FileSearch className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-3">
+                3. Get Clear Insights
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400">
+                Receive a detailed report with risk scores, plain English explanations,
+                and actionable recommendations.
+              </p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Features Section */}
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-white animate-fade-in">
-            How SignaSure Helps You
-          </h2>
+      {/* Features */}
+      <section className="py-16 md:py-24 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+              Why Choose SignaSure
+            </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-400">
+              Powerful features designed for everyone
+            </p>
+          </div>
 
-          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature, index) => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Shield,
+                title: 'Risk Identification',
+                description:
+                  'Automatically detect potential risks, unfair clauses, and hidden obligations.',
+              },
+              {
+                icon: FileText,
+                title: 'Plain English',
+                description:
+                  'Complex legal jargon translated into simple language anyone can understand.',
+              },
+              {
+                icon: Zap,
+                title: 'Instant Analysis',
+                description:
+                  'Get comprehensive document analysis in seconds, not hours or days.',
+              },
+              {
+                icon: CheckCircle,
+                title: 'Actionable Advice',
+                description:
+                  'Receive specific recommendations on what to negotiate or watch out for.',
+              },
+              {
+                icon: FileSearch,
+                title: 'Multiple Formats',
+                description:
+                  'Support for PDFs, images, and scanned documents with OCR technology.',
+              },
+              {
+                icon: Shield,
+                title: 'Privacy First',
+                description:
+                  'Your documents are processed securely and never stored permanently.',
+              },
+            ].map((feature, index) => (
               <div
-                key={feature.title}
-                className="group rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-2 hover:border-primary-200 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-primary-700 opacity-0 animate-fade-in-up"
-                style={{ animationDelay: `${0.1 * index + 0.4}s`, animationFillMode: 'forwards' }}
+                key={index}
+                className="flex gap-4 p-6 rounded-xl bg-slate-50 dark:bg-slate-800/50"
               >
-                <div className="inline-flex rounded-lg bg-primary-100 p-3 dark:bg-primary-900/30 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
-                  <feature.icon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                <div className="p-3 rounded-lg bg-primary-100 dark:bg-primary-900/30 h-fit">
+                  <feature.icon className="h-5 w-5 text-primary-600" />
                 </div>
-                <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-200 group-hover:text-primary-600 dark:group-hover:text-primary-400">
-                  {feature.title}
-                </h3>
-                <p className="mt-2 text-gray-600 dark:text-slate-300">
-                  {feature.description}
-                </p>
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {feature.description}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* How It Works Section */}
-        <section className="bg-gray-50 dark:bg-slate-900/50">
-          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-            <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-white">
-              How It Works
-            </h2>
-
-            <div className="mt-12 grid gap-8 md:grid-cols-3">
-              {[
-                {
-                  step: '1',
-                  title: 'Upload Your Document',
-                  description: 'Drag and drop a PDF or image of your legal document.',
-                },
-                {
-                  step: '2',
-                  title: 'AI Analysis',
-                  description: 'Our AI extracts text and analyzes it for potential issues.',
-                },
-                {
-                  step: '3',
-                  title: 'Review Results',
-                  description: 'Get a clear risk score, flagged issues, and recommendations.',
-                },
-              ].map((item, index) => (
-                <div
-                  key={item.step}
-                  className="text-center group opacity-0 animate-fade-in-up"
-                  style={{ animationDelay: `${0.2 * index}s`, animationFillMode: 'forwards' }}
-                >
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-600 text-xl font-bold text-white transition-transform duration-300 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-primary-500/30">
-                    {item.step}
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-gray-600 dark:text-slate-300">{item.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-primary-600 px-6 py-12 text-center sm:px-12 transition-all duration-300 hover:shadow-2xl hover:shadow-primary-500/20">
-            <h2 className="text-3xl font-bold text-white">
-              Ready to Understand Your Documents?
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-primary-100">
-              Sign in with Google to get started. Free to use with rate limits.
-            </p>
-            <div className="mt-8 flex justify-center">
-              {isAuthenticated ? (
-                <Link href="/upload">
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    className="bg-white text-primary-600 hover:bg-gray-100 group"
-                  >
-                    Upload a Document
-                    <ArrowRight className="ml-2 h-5 w-5 transition-transform duration-200 group-hover:translate-x-1" />
-                  </Button>
-                </Link>
-              ) : (
-                <div className="w-full max-w-xs">
-                  <GoogleSignInButton />
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      </main>
+      {/* CTA */}
+      <section className="py-16 md:py-24 px-4 bg-primary-600">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Ready to Understand Your Documents?
+          </h2>
+          <p className="text-lg text-primary-100 mb-8">
+            Join thousands of users who make smarter decisions with SignaSure.
+          </p>
+          <Link href="/login">
+            <Button
+              size="lg"
+              variant="secondary"
+              rightIcon={<ArrowRight className="h-5 w-5" />}
+            >
+              Get Started Free
+            </Button>
+          </Link>
+        </div>
+      </section>
 
       <Footer />
     </div>

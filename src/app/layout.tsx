@@ -6,8 +6,16 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SignaSure - AI Legal Document Analyzer',
-  description: 'Analyze legal documents for potential issues, hidden fees, and unfavorable terms with AI-powered insights.',
+  title: 'SignaSure - AI-Powered Legal Document Analysis',
+  description:
+    'Understand your contracts in plain English. SignaSure uses AI to analyze legal documents, identify risks, and provide clear recommendations.',
+  keywords: [
+    'legal document analysis',
+    'contract analysis',
+    'AI legal assistant',
+    'document review',
+    'risk assessment',
+  ],
 };
 
 export default function RootLayout({

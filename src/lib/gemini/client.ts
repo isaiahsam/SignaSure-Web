@@ -1,143 +1,162 @@
-import { DocumentType, GeminiAnalysisResponse } from '@/types';
-import { buildAnalysisPrompt, geminiResponseSchema } from './prompts';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { buildAnalysisPrompt } from './prompts';
+import type { DocumentType, Flag, Clause } from '@/types';
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+export interface AnalysisResult {
+  riskScore: number;
+  summary: string;
+  flags: Flag[];
+  importantClauses: Clause[];
+  recommendations: string[];
+  fairnessAssessment: string;
+}
 
 export class GeminiClient {
-  private apiKey: string;
+  private genAI: GoogleGenerativeAI;
+  private modelName = 'gemini-1.5-flash';
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey;
+    this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
   async analyzeDocument(
-    text: string,
+    documentText: string,
     documentType: DocumentType
-  ): Promise<GeminiAnalysisResponse> {
-    // Validate input
-    if (!text || text.trim().length === 0) {
-      throw new Error('Document text is empty. Cannot analyze.');
-    }
+  ): Promise<AnalysisResult> {
+    const model = this.genAI.getGenerativeModel({ model: this.modelName });
 
-    if (text.length < 50) {
-      throw new Error('Document text is too short. Please ensure the document contains readable text.');
-    }
+    const prompt = buildAnalysisPrompt(documentText, documentType);
 
-    const prompt = buildAnalysisPrompt(text, documentType);
-
-    const requestBody = {
-      contents: [
-        {
-          parts: [{ text: prompt }],
+    try {
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 8192,
+          responseMimeType: 'application/json',
         },
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        topP: 0.8,
-        topK: 20,
-        maxOutputTokens: 4000,
-        responseMimeType: 'application/json',
-        responseSchema: geminiResponseSchema,
-      },
-    };
-
-    let response: Response;
-    try {
-      response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
       });
-    } catch (fetchError) {
-      console.error('Network error calling Gemini API:', fetchError);
-      throw new Error('Network error: Unable to connect to AI service. Please check your internet connection.');
-    }
 
-    if (!response.ok) {
-      let errorText = '';
-      let errorJson: { error?: { message?: string; status?: string } } | null = null;
-      try {
-        errorText = await response.text();
-        errorJson = JSON.parse(errorText);
-      } catch {
-        // Failed to parse error response
+      const response = await result.response;
+      const text = response.text();
+
+      // Clean the response text
+      let cleanedText = text.trim();
+      if (cleanedText.startsWith('```json')) {
+        cleanedText = cleanedText.slice(7);
       }
-
-      const errorMessage = errorJson?.error?.message || errorText;
-      console.error('Gemini API error:', response.status, errorMessage);
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('AI service authentication failed. Please check the API key configuration.');
+      if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.slice(3);
       }
-      if (response.status === 429) {
-        throw new Error('API rate limit exceeded. Please wait a moment and try again.');
+      if (cleanedText.endsWith('```')) {
+        cleanedText = cleanedText.slice(0, -3);
       }
-      if (response.status === 400) {
-        console.error('Bad request details:', errorMessage);
-        throw new Error(`Invalid request to AI service: ${errorMessage.substring(0, 100)}`);
-      }
-      if (response.status >= 500) {
-        throw new Error('AI service is temporarily unavailable. Please try again later.');
-      }
-      throw new Error(`AI analysis failed (Error ${response.status}): ${errorMessage.substring(0, 100)}`);
-    }
+      cleanedText = cleanedText.trim();
 
-    const responseData = await response.json();
-    console.log('Gemini response received');
+      const parsed = JSON.parse(cleanedText);
 
-    // Extract text from response
-    const candidates = responseData.candidates;
-    if (!candidates || candidates.length === 0) {
-      console.error('No candidates in response:', JSON.stringify(responseData));
-      throw new Error('AI returned an empty response. Please try again.');
-    }
-
-    const content = candidates[0].content;
-    const parts = content?.parts;
-    if (!parts || parts.length === 0) {
-      console.error('No parts in response:', JSON.stringify(candidates[0]));
-      throw new Error('AI returned an empty response. Please try again.');
-    }
-
-    let textResponse = parts[0].text as string;
-    console.log('Raw response length:', textResponse?.length || 0);
-
-    // Remove markdown code blocks if present
-    textResponse = textResponse.trim();
-    if (textResponse.startsWith('```json')) {
-      textResponse = textResponse.substring(7);
-    } else if (textResponse.startsWith('```')) {
-      textResponse = textResponse.substring(3);
-    }
-    if (textResponse.endsWith('```')) {
-      textResponse = textResponse.substring(0, textResponse.length - 3);
-    }
-    textResponse = textResponse.trim();
-
-    try {
-      const parsed = JSON.parse(textResponse) as GeminiAnalysisResponse;
-
-      // Validate required fields
-      if (!this.isValidResponse(parsed)) {
-        console.warn('Response missing some fields, using partial data');
-      }
-
-      return parsed;
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError);
-      console.error('Raw text (first 500 chars):', textResponse.substring(0, 500));
-      throw new Error('Failed to parse AI response. Please try again.');
+      // Validate and transform the response
+      return this.validateAndTransform(parsed);
+    } catch (error) {
+      console.error('Error analyzing document with Gemini:', error);
+      throw new Error('Failed to analyze document. Please try again.');
     }
   }
 
-  private isValidResponse(response: GeminiAnalysisResponse): boolean {
-    return (
-      typeof response.documentTitle === 'string' &&
-      Array.isArray(response.flags) &&
-      Array.isArray(response.importantClauses) &&
-      typeof response.riskScore === 'number' &&
-      typeof response.summary === 'string' &&
-      Array.isArray(response.recommendations)
+  private validateAndTransform(data: Record<string, unknown>): AnalysisResult {
+    // Ensure riskScore is a number between 0-100
+    const riskScore = Math.min(100, Math.max(0, Number(data.riskScore) || 50));
+
+    // Ensure summary is a string
+    const summary = String(data.summary || 'No summary available.');
+
+    // Ensure flags is an array
+    const flags: Flag[] = Array.isArray(data.flags)
+      ? data.flags.map((f: Record<string, unknown>, i: number) => ({
+          id: String(f.id || `flag-${i}`),
+          type: this.validateFlagType(f.type),
+          severity: this.validateSeverity(f.severity),
+          title: String(f.title || 'Unknown Issue'),
+          description: String(f.description || ''),
+          originalText: f.originalText ? String(f.originalText) : undefined,
+          recommendation: f.recommendation ? String(f.recommendation) : undefined,
+        }))
+      : [];
+
+    // Ensure importantClauses is an array
+    const importantClauses: Clause[] = Array.isArray(data.importantClauses)
+      ? data.importantClauses.map((c: Record<string, unknown>, i: number) => ({
+          id: String(c.id || `clause-${i}`),
+          title: String(c.title || 'Unknown Clause'),
+          originalText: String(c.originalText || ''),
+          simplifiedExplanation: String(c.simplifiedExplanation || ''),
+          importance: this.validateImportance(c.importance),
+        }))
+      : [];
+
+    // Ensure recommendations is an array of strings
+    const recommendations: string[] = Array.isArray(data.recommendations)
+      ? data.recommendations.map((r: unknown) => String(r))
+      : [];
+
+    // Ensure fairnessAssessment is a string
+    const fairnessAssessment = String(
+      data.fairnessAssessment || 'Unable to assess fairness.'
     );
+
+    return {
+      riskScore,
+      summary,
+      flags,
+      importantClauses,
+      recommendations,
+      fairnessAssessment,
+    };
+  }
+
+  private validateFlagType(
+    type: unknown
+  ):
+    | 'liability'
+    | 'termination'
+    | 'payment'
+    | 'intellectual_property'
+    | 'confidentiality'
+    | 'dispute'
+    | 'renewal'
+    | 'penalty'
+    | 'obligation'
+    | 'other' {
+    const validTypes = [
+      'liability',
+      'termination',
+      'payment',
+      'intellectual_property',
+      'confidentiality',
+      'dispute',
+      'renewal',
+      'penalty',
+      'obligation',
+      'other',
+    ] as const;
+    return validTypes.includes(type as (typeof validTypes)[number])
+      ? (type as (typeof validTypes)[number])
+      : 'other';
+  }
+
+  private validateSeverity(severity: unknown): 'low' | 'medium' | 'high' | 'critical' {
+    const validSeverities = ['low', 'medium', 'high', 'critical'] as const;
+    return validSeverities.includes(severity as (typeof validSeverities)[number])
+      ? (severity as (typeof validSeverities)[number])
+      : 'medium';
+  }
+
+  private validateImportance(importance: unknown): 'low' | 'medium' | 'high' {
+    const validImportance = ['low', 'medium', 'high'] as const;
+    return validImportance.includes(importance as (typeof validImportance)[number])
+      ? (importance as (typeof validImportance)[number])
+      : 'medium';
   }
 }
