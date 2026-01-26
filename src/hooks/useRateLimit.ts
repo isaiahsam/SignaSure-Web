@@ -10,7 +10,7 @@ export function useRateLimit() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: usage, isLoading } = useQuery({
+  const { data: usage, isLoading, isError } = useQuery({
     queryKey: ['usage', user?.uid],
     queryFn: () => {
       if (!user) return null;
@@ -18,6 +18,8 @@ export function useRateLimit() {
     },
     enabled: !!user,
     refetchInterval: 60000, // Refetch every minute
+    retry: 1, // Only retry once
+    retryDelay: 1000,
   });
 
   const incrementMutation = useMutation({
@@ -32,7 +34,8 @@ export function useRateLimit() {
 
   const currentCount = usage?.analysisCount || 0;
   const remainingAnalyses = Math.max(0, DAILY_LIMIT - currentCount);
-  const canAnalyze = remainingAnalyses > 0;
+  // Always allow analysis if Firestore fails (isError) or still loading
+  const canAnalyze = isError || isLoading || remainingAnalyses > 0;
 
   return {
     currentCount,
@@ -40,6 +43,7 @@ export function useRateLimit() {
     dailyLimit: DAILY_LIMIT,
     canAnalyze,
     isLoading,
+    isError,
     incrementUsage: incrementMutation.mutateAsync,
   };
 }

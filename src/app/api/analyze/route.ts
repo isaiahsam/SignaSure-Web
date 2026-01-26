@@ -49,13 +49,21 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
   } catch (error) {
     console.error('Error in analyze API:', error);
 
-    const errorMessage =
-      error instanceof Error ? error.message : 'An unexpected error occurred';
+    let errorMessage = 'An unexpected error occurred';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      // Include stack trace in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Stack trace:', error.stack);
+      }
+    }
 
     return NextResponse.json(
       {
         success: false,
         error: errorMessage,
+        // Include more details in development
+        details: process.env.NODE_ENV === 'development' ? String(error) : undefined,
       },
       { status: 500 }
     );

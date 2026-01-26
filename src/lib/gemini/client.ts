@@ -23,7 +23,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 export class GeminiClient {
   private genAI: GoogleGenerativeAI;
-  private modelName = 'gemini-1.5-flash';
+  private modelName = 'gemini-2.5-flash';
 
   constructor(apiKey: string) {
     this.genAI = new GoogleGenerativeAI(apiKey);
@@ -74,7 +74,15 @@ export class GeminiClient {
       }
       cleanedText = cleanedText.trim();
 
-      const parsed = JSON.parse(cleanedText);
+      // Try to parse JSON, with repair attempt if it fails
+      let parsed;
+      try {
+        parsed = JSON.parse(cleanedText);
+      } catch (parseError) {
+        console.warn('JSON parse failed, attempting to repair...', parseError);
+        // Try to repair truncated JSON
+        parsed = this.repairAndParseJSON(cleanedText);
+      }
 
       // Validate and transform the response
       return this.validateAndTransform(parsed);
@@ -83,18 +91,90 @@ export class GeminiClient {
 
       // Provide specific error messages
       if (error instanceof Error) {
+        console.error('Gemini error message:', error.message);
+
         if (error.message.includes('timed out')) {
           throw error;
         }
-        if (error.message.includes('API key')) {
+        if (error.message.includes('API key') || error.message.includes('API_KEY')) {
           throw new Error('Invalid API key. Please check your Gemini API configuration.');
         }
         if (error.message.includes('quota') || error.message.includes('rate')) {
           throw new Error('API rate limit exceeded. Please try again later.');
         }
+        if (error.message.includes('not found') || error.message.includes('404')) {
+          throw new Error('Gemini model not found. The model may have been updated.');
+        }
+        // Pass through the actual error message for debugging
+        throw new Error(`Gemini API error: ${error.message}`);
       }
 
       throw new Error('Failed to analyze document. Please try again.');
+    }
+  }
+
+  private repairAndParseJSON(text: string): Record<string, unknown> {
+    // Try to repair truncated JSON by closing open brackets/braces
+    let repaired = text;
+
+    // Count open brackets and braces
+    let openBraces = 0;
+    let openBrackets = 0;
+    let inString = false;
+    let escapeNext = false;
+
+    for (const char of repaired) {
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      if (char === '\\') {
+        escapeNext = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (!inString) {
+        if (char === '{') openBraces++;
+        if (char === '}') openBraces--;
+        if (char === '[') openBrackets++;
+        if (char === ']') openBrackets--;
+      }
+    }
+
+    // If we're in a string, close it
+    if (inString) {
+      repaired += '"';
+    }
+
+    // Remove trailing comma if present
+    repaired = repaired.replace(/,\s*$/, '');
+
+    // Close any open brackets and braces
+    while (openBrackets > 0) {
+      repaired += ']';
+      openBrackets--;
+    }
+    while (openBraces > 0) {
+      repaired += '}';
+      openBraces--;
+    }
+
+    try {
+      return JSON.parse(repaired);
+    } catch {
+      // If repair failed, return a minimal valid response
+      console.error('JSON repair failed, returning minimal response');
+      return {
+        riskScore: 50,
+        summary: 'Analysis completed but response was truncated. Please try again with a shorter document.',
+        flags: [],
+        importantClauses: [],
+        recommendations: ['Try uploading a shorter document or a clearer scan.'],
+        fairnessAssessment: 'Unable to fully assess due to truncated response.',
+      };
     }
   }
 

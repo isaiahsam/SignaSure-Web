@@ -7,7 +7,11 @@
       "Bash(npm run dev)",
       "Bash(timeout:*)",
       "Bash(npm install:*)",
-      "Bash(copy:*)"
+      "Bash(copy:*)",
+      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
