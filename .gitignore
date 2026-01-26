@@ -42,3 +42,6 @@ next-env.d.ts
 
 # OS
 Thumbs.db
+
+# Archives (may contain sensitive configs)
+*.zip
