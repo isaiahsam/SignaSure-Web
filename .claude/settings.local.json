@@ -5,7 +5,9 @@
       "Bash(npm run build:*)",
       "Bash(if exist .next rmdir /s /q .next)",
       "Bash(npm run dev)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npm install:*)",
+      "Bash(copy:*)"
     ]
   }
 }

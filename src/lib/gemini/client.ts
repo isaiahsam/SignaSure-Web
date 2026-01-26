@@ -11,6 +11,16 @@ export interface AnalysisResult {
   fairnessAssessment: string;
 }
 
+// Timeout helper
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Analysis timed out. Please try again.')), ms)
+    ),
+  ]);
+}
+
 export class GeminiClient {
   private genAI: GoogleGenerativeAI;
   private modelName = 'gemini-1.5-flash';
@@ -25,19 +35,28 @@ export class GeminiClient {
   ): Promise<AnalysisResult> {
     const model = this.genAI.getGenerativeModel({ model: this.modelName });
 
-    const prompt = buildAnalysisPrompt(documentText, documentType);
+    // Truncate very long documents to avoid timeouts (keep first 15000 chars)
+    const truncatedText = documentText.length > 15000
+      ? documentText.slice(0, 15000) + '\n\n[Document truncated for analysis...]'
+      : documentText;
+
+    const prompt = buildAnalysisPrompt(truncatedText, documentType);
 
     try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192,
-          responseMimeType: 'application/json',
-        },
-      });
+      // 60 second timeout
+      const result = await withTimeout(
+        model.generateContent({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 4096,
+            responseMimeType: 'application/json',
+          },
+        }),
+        60000
+      );
 
       const response = await result.response;
       const text = response.text();
@@ -61,6 +80,20 @@ export class GeminiClient {
       return this.validateAndTransform(parsed);
     } catch (error) {
       console.error('Error analyzing document with Gemini:', error);
+
+      // Provide specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('timed out')) {
+          throw error;
+        }
+        if (error.message.includes('API key')) {
+          throw new Error('Invalid API key. Please check your Gemini API configuration.');
+        }
+        if (error.message.includes('quota') || error.message.includes('rate')) {
+          throw new Error('API rate limit exceeded. Please try again later.');
+        }
+      }
+
       throw new Error('Failed to analyze document. Please try again.');
     }
   }

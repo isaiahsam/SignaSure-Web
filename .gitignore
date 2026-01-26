@@ -45,3 +45,6 @@ Thumbs.db
 
 # Archives (may contain sensitive configs)
 *.zip
+
+# Generated PDF.js worker (copied from node_modules during build)
+public/pdf.worker.min.mjs
