@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { buildAnalysisPrompt } from './prompts';
-import type { DocumentType, Flag, Clause } from '@/types';
+import type { DocumentType, Flag, Clause, RiskBreakdown, Verdict, AffectedParty } from '@/types';
 
 export interface AnalysisResult {
   riskScore: number;
@@ -9,6 +9,13 @@ export interface AnalysisResult {
   importantClauses: Clause[];
   recommendations: string[];
   fairnessAssessment: string;
+  // New Philippines-focused fields
+  assumedUserRole?: string;
+  riskBreakdown?: RiskBreakdown;
+  verdict?: Verdict;
+  clarifyChecklist?: string[];
+  philippinesNotes?: string[];
+  disclaimer?: string;
 }
 
 // Timeout helper
@@ -21,6 +28,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+// Delay helper for retry backoff
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export class GeminiClient {
   private genAI: GoogleGenerativeAI;
   private modelName = 'gemini-2.5-flash';
@@ -31,7 +43,8 @@ export class GeminiClient {
 
   async analyzeDocument(
     documentText: string,
-    documentType: DocumentType
+    documentType: DocumentType,
+    userRole?: string
   ): Promise<AnalysisResult> {
     const model = this.genAI.getGenerativeModel({ model: this.modelName });
 
@@ -50,77 +63,96 @@ export class GeminiClient {
       textToAnalyze = `${beginning}\n\n[... middle section ...]\n\n${middle}\n\n[... end section ...]\n\n${end}`;
     }
 
-    const prompt = buildAnalysisPrompt(textToAnalyze, documentType);
+    const prompt = buildAnalysisPrompt(textToAnalyze, documentType, userRole);
 
-    try {
-      // 90 second timeout for longer documents
-      const result = await withTimeout(
-        model.generateContent({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 16384, // Increased from 4096 to handle detailed analysis
-            responseMimeType: 'application/json',
-          },
-        }),
-        90000
-      );
+    // Retry logic for rate limits
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-      const response = await result.response;
-      const text = response.text();
-
-      // Clean the response text
-      let cleanedText = text.trim();
-      if (cleanedText.startsWith('```json')) {
-        cleanedText = cleanedText.slice(7);
-      }
-      if (cleanedText.startsWith('```')) {
-        cleanedText = cleanedText.slice(3);
-      }
-      if (cleanedText.endsWith('```')) {
-        cleanedText = cleanedText.slice(0, -3);
-      }
-      cleanedText = cleanedText.trim();
-
-      // Try to parse JSON, with repair attempt if it fails
-      let parsed;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        parsed = JSON.parse(cleanedText);
-      } catch (parseError) {
-        console.warn('JSON parse failed, attempting to repair...', parseError);
-        // Try to repair truncated JSON
-        parsed = this.repairAndParseJSON(cleanedText);
-      }
+        // 90 second timeout for longer documents
+        const result = await withTimeout(
+          model.generateContent({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 16384, // Increased from 4096 to handle detailed analysis
+              responseMimeType: 'application/json',
+            },
+          }),
+          90000
+        );
 
-      // Validate and transform the response
-      return this.validateAndTransform(parsed);
-    } catch (error) {
-      console.error('Error analyzing document with Gemini:', error);
+        const response = await result.response;
+        const text = response.text();
 
-      // Provide specific error messages
-      if (error instanceof Error) {
-        console.error('Gemini error message:', error.message);
-
-        if (error.message.includes('timed out')) {
-          throw error;
+        // Clean the response text
+        let cleanedText = text.trim();
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText.slice(7);
         }
-        if (error.message.includes('API key') || error.message.includes('API_KEY')) {
+        if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText.slice(3);
+        }
+        if (cleanedText.endsWith('```')) {
+          cleanedText = cleanedText.slice(0, -3);
+        }
+        cleanedText = cleanedText.trim();
+
+        // Try to parse JSON, with repair attempt if it fails
+        let parsed;
+        try {
+          parsed = JSON.parse(cleanedText);
+        } catch (parseError) {
+          console.warn('JSON parse failed, attempting to repair...', parseError);
+          // Try to repair truncated JSON
+          parsed = this.repairAndParseJSON(cleanedText);
+        }
+
+        // Validate and transform the response
+        return this.validateAndTransform(parsed);
+      } catch (error) {
+        console.error(`Error analyzing document (attempt ${attempt}/${maxRetries}):`, error);
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Check if this is a rate limit error - if so, wait and retry
+        const isRateLimit =
+          lastError.message.includes('quota') ||
+          lastError.message.includes('rate') ||
+          lastError.message.includes('429') ||
+          lastError.message.includes('Resource has been exhausted');
+
+        if (isRateLimit && attempt < maxRetries) {
+          // Exponential backoff: 10s, 20s, 40s
+          const waitTime = 10000 * Math.pow(2, attempt - 1);
+          console.log(`Rate limited. Waiting ${waitTime / 1000}s before retry...`);
+          await delay(waitTime);
+          continue;
+        }
+
+        // For non-rate-limit errors, or if we've exhausted retries, handle the error
+        if (lastError.message.includes('timed out')) {
+          throw lastError;
+        }
+        if (lastError.message.includes('API key') || lastError.message.includes('API_KEY')) {
           throw new Error('Invalid API key. Please check your Gemini API configuration.');
         }
-        if (error.message.includes('quota') || error.message.includes('rate')) {
-          throw new Error('API rate limit exceeded. Please try again later.');
+        if (isRateLimit) {
+          throw new Error('API rate limit exceeded. Please wait a minute and try again.');
         }
-        if (error.message.includes('not found') || error.message.includes('404')) {
+        if (lastError.message.includes('not found') || lastError.message.includes('404')) {
           throw new Error('Gemini model not found. The model may have been updated.');
         }
         // Pass through the actual error message for debugging
-        throw new Error(`Gemini API error: ${error.message}`);
+        throw new Error(`Gemini API error: ${lastError.message}`);
       }
-
-      throw new Error('Failed to analyze document. Please try again.');
     }
+
+    // This shouldn't be reached, but just in case
+    throw lastError || new Error('Failed to analyze document. Please try again.');
   }
 
   private repairAndParseJSON(text: string): Record<string, unknown> {
@@ -227,6 +259,7 @@ export class GeminiClient {
           description: String(f.description || ''),
           originalText: f.originalText ? String(f.originalText) : undefined,
           recommendation: f.recommendation ? String(f.recommendation) : undefined,
+          whoItAffects: this.validateAffectedParty(f.whoItAffects),
         }))
       : [];
 
@@ -265,6 +298,25 @@ export class GeminiClient {
       data.fairnessAssessment || 'No specific fairness concerns identified.'
     );
 
+    // New Philippines-focused fields
+    const assumedUserRole = data.assumedUserRole ? String(data.assumedUserRole) : undefined;
+
+    const riskBreakdown = this.validateRiskBreakdown(data.riskBreakdown);
+
+    const verdict = this.validateVerdict(data.verdict);
+
+    const clarifyChecklist: string[] = Array.isArray(data.clarifyChecklist)
+      ? data.clarifyChecklist.map((item: unknown) => String(item))
+      : [];
+
+    const philippinesNotes: string[] = Array.isArray(data.philippinesNotes)
+      ? data.philippinesNotes.map((note: unknown) => String(note))
+      : [];
+
+    const disclaimer = data.disclaimer
+      ? String(data.disclaimer)
+      : 'This is general information, not legal advice. Consider consulting a Philippine lawyer for advice on your specific situation.';
+
     return {
       riskScore,
       summary,
@@ -272,7 +324,46 @@ export class GeminiClient {
       importantClauses,
       recommendations,
       fairnessAssessment,
+      assumedUserRole,
+      riskBreakdown,
+      verdict,
+      clarifyChecklist,
+      philippinesNotes,
+      disclaimer,
     };
+  }
+
+  private validateRiskBreakdown(data: unknown): RiskBreakdown | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+
+    const breakdown = data as Record<string, unknown>;
+    return {
+      fairnessRisk: Math.min(100, Math.max(0, Number(breakdown.fairnessRisk) || 0)),
+      enforceabilityRisk: Math.min(100, Math.max(0, Number(breakdown.enforceabilityRisk) || 0)),
+      completenessRisk: Math.min(100, Math.max(0, Number(breakdown.completenessRisk) || 0)),
+      primaryDrivers: Array.isArray(breakdown.primaryDrivers)
+        ? breakdown.primaryDrivers.map((d: unknown) => String(d))
+        : [],
+    };
+  }
+
+  private validateVerdict(verdict: unknown): Verdict {
+    const validVerdicts: Verdict[] = [
+      'safe_to_sign',
+      'review_carefully',
+      'negotiate_before_signing',
+      'high_risk_legal_review',
+    ];
+    return validVerdicts.includes(verdict as Verdict)
+      ? (verdict as Verdict)
+      : 'review_carefully'; // Default to review_carefully
+  }
+
+  private validateAffectedParty(party: unknown): AffectedParty {
+    const validParties: AffectedParty[] = ['user', 'counterparty', 'both'];
+    return validParties.includes(party as AffectedParty)
+      ? (party as AffectedParty)
+      : 'user';
   }
 
   private calculateRiskFromFlags(flags: Flag[]): number {
@@ -316,6 +407,8 @@ export class GeminiClient {
     | 'renewal'
     | 'penalty'
     | 'obligation'
+    | 'property'
+    | 'notarization'
     | 'other' {
     const validTypes = [
       'liability',
@@ -327,6 +420,8 @@ export class GeminiClient {
       'renewal',
       'penalty',
       'obligation',
+      'property',
+      'notarization',
       'other',
     ] as const;
     return validTypes.includes(type as (typeof validTypes)[number])

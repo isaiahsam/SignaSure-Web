@@ -16,7 +16,7 @@ import { DocumentTypeSelect } from '@/components/documents/document-type-select'
 import { SkeletonList } from '@/components/ui/skeleton';
 import { extractText } from '@/lib/ocr';
 import { saveAnalysis } from '@/lib/firebase/firestore';
-import { DOCUMENT_TYPE_LABELS, type DocumentType } from '@/types';
+import { DOCUMENT_TYPE_LABELS, USER_ROLES, type DocumentType, type Verdict, VERDICT_LABELS, VERDICT_COLORS } from '@/types';
 import { cn } from '@/lib/utils';
 import {
   FileText,
@@ -49,6 +49,7 @@ export default function DashboardPage() {
   // Upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState<DocumentType>('other');
+  const [userRole, setUserRole] = useState<string>(''); // Empty = let AI determine
   const [extractedText, setExtractedText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -91,9 +92,21 @@ export default function DashboardPage() {
   const [analysisResult, setAnalysisResult] = useState<{
     riskScore: number;
     summary: string;
-    flags: Array<{ severity: string; title: string; description: string; recommendation?: string }>;
+    flags: Array<{ severity: string; title: string; description: string; recommendation?: string; whoItAffects?: string }>;
     recommendations: string[];
     fairnessAssessment: string;
+    // New Philippines-focused fields
+    assumedUserRole?: string;
+    verdict?: Verdict;
+    riskBreakdown?: {
+      fairnessRisk: number;
+      enforceabilityRisk: number;
+      completenessRisk: number;
+      primaryDrivers: string[];
+    };
+    clarifyChecklist?: string[];
+    philippinesNotes?: string[];
+    disclaimer?: string;
   } | null>(null);
 
   const handleAnalyze = useCallback(async () => {
@@ -116,6 +129,7 @@ export default function DashboardPage() {
           documentId: 'temp-' + Date.now(),
           extractedText,
           documentType,
+          userRole: userRole || undefined, // Only pass if user selected a role
         }),
       });
 
@@ -191,11 +205,12 @@ export default function DashboardPage() {
       });
       setIsAnalyzing(false);
     }
-  }, [user, selectedFile, extractedText, canAnalyze, documentType, addToast, createDocument, updateDocument, incrementUsage, router]);
+  }, [user, selectedFile, extractedText, canAnalyze, documentType, userRole, addToast, createDocument, updateDocument, incrementUsage, router]);
 
   const resetUpload = useCallback(() => {
     setSelectedFile(null);
     setDocumentType('other');
+    setUserRole('');
     setExtractedText('');
     setUploadError(null);
     setAnalysisResult(null);
@@ -344,22 +359,93 @@ export default function DashboardPage() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Analysis Complete</CardTitle>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Risk Score: {analysisResult.riskScore}/100
-                  </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <CardTitle>Analysis Complete</CardTitle>
+                    </div>
+                    {/* Verdict Badge */}
+                    {analysisResult.verdict && (
+                      <div className={cn(
+                        'px-4 py-2 rounded-lg border font-medium text-sm',
+                        VERDICT_COLORS[analysisResult.verdict]
+                      )}>
+                        {VERDICT_LABELS[analysisResult.verdict]}
+                      </div>
+                    )}
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+
+                {/* Your Role Indicator - Clear banner showing who you are */}
+                {analysisResult.assumedUserRole && (
+                  <div className="mx-6 mb-4 p-4 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center">
+                        <span className="text-lg">👤</span>
+                      </div>
+                      <div>
+                        <p className="text-sm text-primary-600 dark:text-primary-400 font-medium">Your Role in This Document</p>
+                        <p className="text-base font-semibold text-primary-900 dark:text-primary-100">
+                          {analysisResult.assumedUserRole}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <CardContent className="space-y-6">
+                  {/* Risk Score & Breakdown */}
+                  <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100">Risk Score</h3>
+                      <span className={cn(
+                        'text-2xl font-bold',
+                        analysisResult.riskScore <= 20 ? 'text-green-600' :
+                        analysisResult.riskScore <= 40 ? 'text-blue-600' :
+                        analysisResult.riskScore <= 60 ? 'text-yellow-600' :
+                        analysisResult.riskScore <= 80 ? 'text-orange-600' :
+                        'text-red-600'
+                      )}>
+                        {analysisResult.riskScore}/100
+                      </span>
+                    </div>
+                    {analysisResult.riskBreakdown && (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-600 dark:text-slate-400">Enforceability Risk</span>
+                          <span className="font-medium">{analysisResult.riskBreakdown.enforceabilityRisk}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600 dark:text-slate-400">Fairness Risk</span>
+                          <span className="font-medium">{analysisResult.riskBreakdown.fairnessRisk}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-600 dark:text-slate-400">Completeness Risk</span>
+                          <span className="font-medium">{analysisResult.riskBreakdown.completenessRisk}%</span>
+                        </div>
+                        {analysisResult.riskBreakdown.primaryDrivers.length > 0 && (
+                          <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                            <span className="text-slate-500">Main concerns: </span>
+                            <span className="text-slate-700 dark:text-slate-300">
+                              {analysisResult.riskBreakdown.primaryDrivers.join(', ')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary */}
                   <div>
                     <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Summary</h3>
                     <p className="text-slate-600 dark:text-slate-400">{analysisResult.summary}</p>
                   </div>
 
+                  {/* Fairness Assessment */}
                   <div>
                     <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Fairness Assessment</h3>
                     <p className="text-slate-600 dark:text-slate-400">{analysisResult.fairnessAssessment}</p>
                   </div>
 
+                  {/* Flags */}
                   {analysisResult.flags && analysisResult.flags.length > 0 && (
                     <div>
                       <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
@@ -368,20 +454,27 @@ export default function DashboardPage() {
                       <div className="space-y-2">
                         {analysisResult.flags.map((flag, i) => (
                           <div key={i} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                flag.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                                flag.severity === 'high' ? 'bg-orange-100 text-orange-700' :
-                                flag.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-green-100 text-green-700'
+                                flag.severity === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                flag.severity === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                flag.severity === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                               }`}>
                                 {flag.severity}
                               </span>
+                              {flag.whoItAffects && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                  Affects: {flag.whoItAffects}
+                                </span>
+                              )}
                               <span className="font-medium text-slate-900 dark:text-slate-100">{flag.title}</span>
                             </div>
                             <p className="text-sm text-slate-600 dark:text-slate-400">{flag.description}</p>
                             {flag.recommendation && (
-                              <p className="text-sm text-primary-600 mt-1">Recommendation: {flag.recommendation}</p>
+                              <p className="text-sm text-primary-600 dark:text-primary-400 mt-1">
+                                <span className="font-medium">Recommendation:</span> {flag.recommendation}
+                              </p>
                             )}
                           </div>
                         ))}
@@ -389,6 +482,7 @@ export default function DashboardPage() {
                     </div>
                   )}
 
+                  {/* Recommendations */}
                   {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
                     <div>
                       <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Recommendations</h3>
@@ -397,6 +491,42 @@ export default function DashboardPage() {
                           <li key={i}>{rec}</li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {/* Clarify Checklist */}
+                  {analysisResult.clarifyChecklist && analysisResult.clarifyChecklist.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Questions to Clarify</h3>
+                      <ul className="space-y-2">
+                        {analysisResult.clarifyChecklist.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2 text-slate-600 dark:text-slate-400">
+                            <span className="text-primary-600 mt-0.5">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Philippines Notes */}
+                  {analysisResult.philippinesNotes && analysisResult.philippinesNotes.length > 0 && (
+                    <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                      <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🇵🇭 Philippines-Specific Notes</h3>
+                      <ul className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                        {analysisResult.philippinesNotes.map((note, i) => (
+                          <li key={i}>• {note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Disclaimer */}
+                  {analysisResult.disclaimer && (
+                    <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                        {analysisResult.disclaimer}
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -459,9 +589,44 @@ export default function DashboardPage() {
 
                 <DocumentTypeSelect
                   value={documentType}
-                  onChange={setDocumentType}
+                  onChange={(newType) => {
+                    setDocumentType(newType);
+                    setUserRole(''); // Reset role when document type changes
+                  }}
                   label="Document Type"
                 />
+
+                {/* User Role Selection */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Who are you in this document?
+                  </label>
+                  <select
+                    value={userRole}
+                    onChange={(e) => setUserRole(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    {(USER_ROLES[documentType] || USER_ROLES.other).map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Show description for selected role */}
+                  {userRole && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
+                      <span className="text-primary-600 dark:text-primary-400">→</span>
+                      <p className="text-sm text-primary-700 dark:text-primary-300">
+                        {(USER_ROLES[documentType] || USER_ROLES.other).find(r => r.value === userRole)?.description}
+                      </p>
+                    </div>
+                  )}
+                  {!userRole && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      This helps us analyze the document from your perspective
+                    </p>
+                  )}
+                </div>
 
                 {uploadError && (
                   <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>

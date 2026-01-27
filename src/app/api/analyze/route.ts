@@ -5,10 +5,11 @@ import type { DocumentType, AnalysisResponse } from '@/types';
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
     const body = await request.json();
-    const { extractedText, documentType, documentId } = body as {
+    const { extractedText, documentType, documentId, userRole } = body as {
       extractedText: string;
       documentType: DocumentType;
       documentId: string;
+      userRole?: string;
     };
 
     if (!extractedText || !documentType || !documentId) {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
     }
 
     const client = new GeminiClient(apiKey);
-    const result = await client.analyzeDocument(extractedText, documentType);
+    const result = await client.analyzeDocument(extractedText, documentType, userRole);
 
     return NextResponse.json({
       success: true,
