@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { DocumentCard } from '@/components/documents/document-card';
 import { SkeletonList } from '@/components/ui/skeleton';
 import { DOCUMENT_TYPE_LABELS, DocumentType } from '@/types';
-import { Search, FileText, SlidersHorizontal } from 'lucide-react';
+import { Search, FileText, SlidersHorizontal, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 type SortOption = 'newest' | 'oldest' | 'name';
 type FilterOption = 'all' | 'favorites' | DocumentType;
@@ -121,6 +122,13 @@ export default function HistoryPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div>
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 mb-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Upload
+        </Link>
         <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">
           Document History
         </h1>

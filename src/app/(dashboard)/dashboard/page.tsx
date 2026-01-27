@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useDocuments, useCreateDocument, useUpdateDocument, useDeleteDocument } from '@/hooks/useDocuments';
@@ -14,10 +14,14 @@ import { DocumentCard } from '@/components/documents/document-card';
 import { UploadDropzone } from '@/components/documents/upload-dropzone';
 import { DocumentTypeSelect } from '@/components/documents/document-type-select';
 import { SkeletonList } from '@/components/ui/skeleton';
+import { RoleCard } from '@/components/analysis/role-card';
+import { DocumentViewer } from '@/components/analysis/document-viewer';
+import { ResultsPanel } from '@/components/analysis/results-panel';
 import { extractText } from '@/lib/ocr';
 import { saveAnalysis } from '@/lib/firebase/firestore';
 import { DOCUMENT_TYPE_LABELS, USER_ROLES, type DocumentType, type Verdict, VERDICT_LABELS, VERDICT_COLORS } from '@/types';
 import { cn } from '@/lib/utils';
+import { FormattedText } from '@/components/ui/formatted-text';
 import {
   FileText,
   Upload,
@@ -27,6 +31,8 @@ import {
   Loader2,
   AlertCircle,
   X,
+  ArrowLeft,
+  RefreshCw,
 } from 'lucide-react';
 
 type Tab = 'upload' | 'history';
@@ -48,6 +54,7 @@ export default function DashboardPage() {
 
   // Upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [documentType, setDocumentType] = useState<DocumentType>('other');
   const [userRole, setUserRole] = useState<string>(''); // Empty = let AI determine
   const [extractedText, setExtractedText] = useState<string>('');
@@ -64,10 +71,19 @@ export default function DashboardPage() {
 
   // Upload handlers
   const handleFileSelect = useCallback(async (file: File) => {
+    // Clean up previous file URL
+    if (fileUrl) {
+      URL.revokeObjectURL(fileUrl);
+    }
+
     setSelectedFile(file);
     setUploadError(null);
     setIsProcessing(true);
     setProgress(0);
+
+    // Create object URL for document viewer
+    const url = URL.createObjectURL(file);
+    setFileUrl(url);
 
     try {
       const text = await extractText(file, {
@@ -82,11 +98,13 @@ export default function DashboardPage() {
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to process file');
       setSelectedFile(null);
+      URL.revokeObjectURL(url);
+      setFileUrl(null);
     } finally {
       setIsProcessing(false);
       setProgress(0);
     }
-  }, []);
+  }, [fileUrl]);
 
   // Store analysis result for showing directly if Firestore fails
   const [analysisResult, setAnalysisResult] = useState<{
@@ -208,13 +226,27 @@ export default function DashboardPage() {
   }, [user, selectedFile, extractedText, canAnalyze, documentType, userRole, addToast, createDocument, updateDocument, incrementUsage, router]);
 
   const resetUpload = useCallback(() => {
+    // Clean up file URL
+    if (fileUrl) {
+      URL.revokeObjectURL(fileUrl);
+    }
+    setFileUrl(null);
     setSelectedFile(null);
     setDocumentType('other');
     setUserRole('');
     setExtractedText('');
     setUploadError(null);
     setAnalysisResult(null);
-  }, []);
+  }, [fileUrl]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (fileUrl) {
+        URL.revokeObjectURL(fileUrl);
+      }
+    };
+  }, [fileUrl]);
 
   // History handlers
   const handleToggleFavorite = useCallback(async (documentId: string) => {
@@ -288,7 +320,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -355,186 +387,45 @@ export default function DashboardPage() {
       {activeTab === 'upload' && (
         <div className="space-y-6">
           {analysisResult ? (
-            // Show analysis results directly when Firestore failed
+            // Show analysis results with split layout
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <CardTitle>Analysis Complete</CardTitle>
-                    </div>
-                    {/* Verdict Badge */}
-                    {analysisResult.verdict && (
-                      <div className={cn(
-                        'px-4 py-2 rounded-lg border font-medium text-sm',
-                        VERDICT_COLORS[analysisResult.verdict]
-                      )}>
-                        {VERDICT_LABELS[analysisResult.verdict]}
-                      </div>
-                    )}
-                  </div>
-                </CardHeader>
+              {/* Role Card - Full Width Banner */}
+              {analysisResult.assumedUserRole && (
+                <RoleCard
+                  role={analysisResult.assumedUserRole}
+                  verdict={analysisResult.verdict}
+                />
+              )}
 
-                {/* Your Role Indicator - Clear banner showing who you are */}
-                {analysisResult.assumedUserRole && (
-                  <div className="mx-6 mb-4 p-4 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center">
-                        <span className="text-lg">👤</span>
-                      </div>
-                      <div>
-                        <p className="text-sm text-primary-600 dark:text-primary-400 font-medium">Your Role in This Document</p>
-                        <p className="text-base font-semibold text-primary-900 dark:text-primary-100">
-                          {analysisResult.assumedUserRole}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <CardContent className="space-y-6">
-                  {/* Risk Score & Breakdown */}
-                  <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-slate-900 dark:text-slate-100">Risk Score</h3>
-                      <span className={cn(
-                        'text-2xl font-bold',
-                        analysisResult.riskScore <= 20 ? 'text-green-600' :
-                        analysisResult.riskScore <= 40 ? 'text-blue-600' :
-                        analysisResult.riskScore <= 60 ? 'text-yellow-600' :
-                        analysisResult.riskScore <= 80 ? 'text-orange-600' :
-                        'text-red-600'
-                      )}>
-                        {analysisResult.riskScore}/100
-                      </span>
-                    </div>
-                    {analysisResult.riskBreakdown && (
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-slate-600 dark:text-slate-400">Enforceability Risk</span>
-                          <span className="font-medium">{analysisResult.riskBreakdown.enforceabilityRisk}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600 dark:text-slate-400">Fairness Risk</span>
-                          <span className="font-medium">{analysisResult.riskBreakdown.fairnessRisk}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600 dark:text-slate-400">Completeness Risk</span>
-                          <span className="font-medium">{analysisResult.riskBreakdown.completenessRisk}%</span>
-                        </div>
-                        {analysisResult.riskBreakdown.primaryDrivers.length > 0 && (
-                          <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
-                            <span className="text-slate-500">Main concerns: </span>
-                            <span className="text-slate-700 dark:text-slate-300">
-                              {analysisResult.riskBreakdown.primaryDrivers.join(', ')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+              {/* Split Layout: Document Viewer + Results Panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* Document Viewer - 2/5 width on desktop */}
+                <div className="lg:col-span-2 lg:sticky lg:top-4 lg:self-start">
+                  <DocumentViewer
+                    fileUrl={fileUrl}
+                    fileName={selectedFile?.name || 'document'}
+                    fileType={selectedFile?.type || 'application/pdf'}
+                    extractedText={extractedText}
+                  />
+                </div>
 
-                  {/* Summary */}
-                  <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Summary</h3>
-                    <p className="text-slate-600 dark:text-slate-400">{analysisResult.summary}</p>
-                  </div>
+                {/* Results Panel - 3/5 width on desktop */}
+                <div className="lg:col-span-3">
+                  <ResultsPanel analysis={analysisResult} />
+                </div>
+              </div>
 
-                  {/* Fairness Assessment */}
-                  <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Fairness Assessment</h3>
-                    <p className="text-slate-600 dark:text-slate-400">{analysisResult.fairnessAssessment}</p>
-                  </div>
-
-                  {/* Flags */}
-                  {analysisResult.flags && analysisResult.flags.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                        Flags ({analysisResult.flags.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {analysisResult.flags.map((flag, i) => (
-                          <div key={i} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                flag.severity === 'critical' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                flag.severity === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                                flag.severity === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              }`}>
-                                {flag.severity}
-                              </span>
-                              {flag.whoItAffects && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                                  Affects: {flag.whoItAffects}
-                                </span>
-                              )}
-                              <span className="font-medium text-slate-900 dark:text-slate-100">{flag.title}</span>
-                            </div>
-                            <p className="text-sm text-slate-600 dark:text-slate-400">{flag.description}</p>
-                            {flag.recommendation && (
-                              <p className="text-sm text-primary-600 dark:text-primary-400 mt-1">
-                                <span className="font-medium">Recommendation:</span> {flag.recommendation}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recommendations */}
-                  {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Recommendations</h3>
-                      <ul className="list-disc list-inside space-y-1 text-slate-600 dark:text-slate-400">
-                        {analysisResult.recommendations.map((rec, i) => (
-                          <li key={i}>{rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Clarify Checklist */}
-                  {analysisResult.clarifyChecklist && analysisResult.clarifyChecklist.length > 0 && (
-                    <div>
-                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Questions to Clarify</h3>
-                      <ul className="space-y-2">
-                        {analysisResult.clarifyChecklist.map((item, i) => (
-                          <li key={i} className="flex items-start gap-2 text-slate-600 dark:text-slate-400">
-                            <span className="text-primary-600 mt-0.5">•</span>
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Philippines Notes */}
-                  {analysisResult.philippinesNotes && analysisResult.philippinesNotes.length > 0 && (
-                    <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                      <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🇵🇭 Philippines-Specific Notes</h3>
-                      <ul className="space-y-1 text-sm text-blue-800 dark:text-blue-200">
-                        {analysisResult.philippinesNotes.map((note, i) => (
-                          <li key={i}>• {note}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Disclaimer */}
-                  {analysisResult.disclaimer && (
-                    <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                        {analysisResult.disclaimer}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Button onClick={resetUpload} variant="outline">
-                Analyze Another Document
-              </Button>
+              {/* Action Button */}
+              <div className="flex justify-center pt-4">
+                <Button
+                  onClick={resetUpload}
+                  variant="outline"
+                  leftIcon={<RefreshCw className="h-4 w-4" />}
+                  className="px-6"
+                >
+                  Analyze Another Document
+                </Button>
+              </div>
             </div>
           ) : isAnalyzing ? (
             <Card>
@@ -652,6 +543,15 @@ export default function DashboardPage() {
       {/* History Tab */}
       {activeTab === 'history' && (
         <div className="space-y-4">
+          {/* Back to Upload Button */}
+          <button
+            onClick={() => setActiveTab('upload')}
+            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Upload
+          </button>
+
           {/* Search and Filters */}
           <div className="flex gap-3">
             <div className="flex-1 relative">

@@ -3,15 +3,27 @@
 import { cn, getImportanceColor, getImportanceBgColor } from '@/lib/utils';
 import { Clause, sortClausesByImportance } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormattedText } from '@/components/ui/formatted-text';
 import { FileText, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ClausesTabProps {
   clauses: Clause[];
+  scrollToClauseId?: string | null;
 }
 
-export function ClausesTab({ clauses }: ClausesTabProps) {
+export function ClausesTab({ clauses, scrollToClauseId }: ClausesTabProps) {
   const sortedClauses = sortClausesByImportance(clauses);
+
+  // Scroll to specific clause when scrollToClauseId changes
+  useEffect(() => {
+    if (scrollToClauseId) {
+      const element = document.getElementById(scrollToClauseId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [scrollToClauseId]);
 
   if (clauses.length === 0) {
     return (
@@ -59,15 +71,26 @@ export function ClausesTab({ clauses }: ClausesTabProps) {
       {/* Clauses list */}
       <div className="space-y-3">
         {sortedClauses.map((clause) => (
-          <ClauseItem key={clause.id} clause={clause} />
+          <ClauseItem
+            key={clause.id}
+            clause={clause}
+            isTargeted={scrollToClauseId === clause.id}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function ClauseItem({ clause }: { clause: Clause }) {
+function ClauseItem({ clause, isTargeted }: { clause: Clause; isTargeted?: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Auto-expand when this clause is targeted
+  useEffect(() => {
+    if (isTargeted) {
+      setIsExpanded(true);
+    }
+  }, [isTargeted]);
 
   const importanceLabels = {
     high: 'High Importance',
@@ -76,7 +99,12 @@ function ClauseItem({ clause }: { clause: Clause }) {
   };
 
   return (
-    <Card>
+    <Card
+      id={clause.id}
+      className={cn(
+        isTargeted && 'ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-slate-900'
+      )}
+    >
       <CardHeader className="p-4 pb-0">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -123,7 +151,7 @@ function ClauseItem({ clause }: { clause: Clause }) {
                 What this means in simple terms:
               </p>
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                {clause.simplifiedExplanation}
+                <FormattedText text={clause.simplifiedExplanation} />
               </p>
             </div>
 

@@ -3,6 +3,7 @@
 import { cn, getSeverityColor, getSeverityBgColor } from '@/lib/utils';
 import { Flag, FLAG_TYPE_LABELS, SEVERITY_LABELS, sortFlagsBySeverity } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormattedText } from '@/components/ui/formatted-text';
 import {
   AlertTriangle,
   AlertCircle,
@@ -148,7 +149,7 @@ function FlagItem({ flag }: { flag: Flag }) {
         <CardContent className="p-4 pt-3">
           <div className="ml-11 space-y-3">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              {flag.description}
+              <FormattedText text={flag.description} />
             </p>
 
             {flag.originalText && (
@@ -168,7 +169,7 @@ function FlagItem({ flag }: { flag: Flag }) {
                   Recommendation:
                 </p>
                 <p className="text-sm text-primary-700 dark:text-primary-300">
-                  {flag.recommendation}
+                  <FormattedText text={flag.recommendation} />
                 </p>
               </div>
             )}

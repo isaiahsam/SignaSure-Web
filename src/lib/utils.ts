@@ -101,3 +101,47 @@ export function truncateText(text: string, maxLength: number): string {
 export function generateId(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
+
+/**
+ * Parse simple markdown formatting (bold, italic) and return structured parts
+ * Supports: **bold**, *italic*, __bold__, _italic_
+ */
+export function parseMarkdown(text: string): Array<{ type: 'text' | 'bold' | 'italic'; content: string }> {
+  const parts: Array<{ type: 'text' | 'bold' | 'italic'; content: string }> = [];
+
+  // Regex to match **bold** or __bold__ or *italic* or _italic_
+  const regex = /(\*\*|__)(.+?)\1|(\*|_)(.+?)\3/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before this match
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+    }
+
+    // Add the formatted text
+    if (match[1]) {
+      // Bold match (**text** or __text__)
+      parts.push({ type: 'bold', content: match[2] });
+    } else if (match[3]) {
+      // Italic match (*text* or _text_)
+      parts.push({ type: 'italic', content: match[4] });
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+
+  // If no matches found, return the whole text
+  if (parts.length === 0) {
+    parts.push({ type: 'text', content: text });
+  }
+
+  return parts;
+}

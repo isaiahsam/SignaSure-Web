@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useDocument, useAnalysis, useUpdateDocument, useDeleteDocument } from '@/hooks/useDocuments';
@@ -29,6 +30,9 @@ export default function AnalysisPage() {
   const router = useRouter();
   const { addToast } = useToast();
   const documentId = params.id as string;
+
+  const [activeTab, setActiveTab] = useState('summary');
+  const [scrollToClauseId, setScrollToClauseId] = useState<string | null>(null);
 
   const { data: document, isLoading: isLoadingDoc } = useDocument(documentId);
   const { data: analysis, isLoading: isLoadingAnalysis } = useAnalysis(
@@ -77,6 +81,13 @@ export default function AnalysisPage() {
         title: 'Failed to delete document',
       });
     }
+  };
+
+  const handleClauseClick = (clauseId: string) => {
+    setScrollToClauseId(clauseId);
+    setActiveTab('clauses');
+    // Reset scroll target after navigation
+    setTimeout(() => setScrollToClauseId(null), 1000);
   };
 
   if (isLoadingDoc || isLoadingAnalysis) {
@@ -186,7 +197,7 @@ export default function AnalysisPage() {
       <RiskScoreCard score={analysis.riskScore} />
 
       {/* Analysis Tabs */}
-      <Tabs defaultValue="summary">
+      <Tabs defaultValue="summary" value={activeTab} onChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="summary">
             <Info className="h-4 w-4 mr-2" />
@@ -207,6 +218,13 @@ export default function AnalysisPage() {
             summary={analysis.summary}
             recommendations={analysis.recommendations}
             fairnessAssessment={analysis.fairnessAssessment}
+            assumedUserRole={analysis.assumedUserRole}
+            verdict={analysis.verdict}
+            clarifyChecklist={analysis.clarifyChecklist}
+            philippinesNotes={analysis.philippinesNotes}
+            disclaimer={analysis.disclaimer}
+            clauses={analysis.importantClauses}
+            onClauseClick={handleClauseClick}
           />
         </TabsContent>
 
@@ -215,7 +233,10 @@ export default function AnalysisPage() {
         </TabsContent>
 
         <TabsContent value="clauses">
-          <ClausesTab clauses={analysis.importantClauses} />
+          <ClausesTab
+            clauses={analysis.importantClauses}
+            scrollToClauseId={scrollToClauseId}
+          />
         </TabsContent>
       </Tabs>
 
