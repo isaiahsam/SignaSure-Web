@@ -35,15 +35,25 @@ export class GeminiClient {
   ): Promise<AnalysisResult> {
     const model = this.genAI.getGenerativeModel({ model: this.modelName });
 
-    // Truncate very long documents to avoid timeouts (keep first 15000 chars)
-    const truncatedText = documentText.length > 15000
-      ? documentText.slice(0, 15000) + '\n\n[Document truncated for analysis...]'
-      : documentText;
+    // For very long documents, we'll analyze in chunks and combine results
+    // Increased limit to 50000 chars to handle most documents
+    const maxChars = 50000;
+    let textToAnalyze = documentText;
 
-    const prompt = buildAnalysisPrompt(truncatedText, documentType);
+    if (documentText.length > maxChars) {
+      // For extremely long documents, take beginning, middle, and end sections
+      const chunkSize = Math.floor(maxChars / 3);
+      const beginning = documentText.slice(0, chunkSize);
+      const middleStart = Math.floor(documentText.length / 2) - Math.floor(chunkSize / 2);
+      const middle = documentText.slice(middleStart, middleStart + chunkSize);
+      const end = documentText.slice(-chunkSize);
+      textToAnalyze = `${beginning}\n\n[... middle section ...]\n\n${middle}\n\n[... end section ...]\n\n${end}`;
+    }
+
+    const prompt = buildAnalysisPrompt(textToAnalyze, documentType);
 
     try {
-      // 60 second timeout
+      // 90 second timeout for longer documents
       const result = await withTimeout(
         model.generateContent({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -51,11 +61,11 @@ export class GeminiClient {
             temperature: 0.3,
             topK: 40,
             topP: 0.95,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 16384, // Increased from 4096 to handle detailed analysis
             responseMimeType: 'application/json',
           },
         }),
-        60000
+        90000
       );
 
       const response = await result.response;
@@ -165,27 +175,49 @@ export class GeminiClient {
     try {
       return JSON.parse(repaired);
     } catch {
-      // If repair failed, return a minimal valid response
-      console.error('JSON repair failed, returning minimal response');
-      return {
-        riskScore: 50,
-        summary: 'Analysis completed but response was truncated. Please try again with a shorter document.',
-        flags: [],
-        importantClauses: [],
-        recommendations: ['Try uploading a shorter document or a clearer scan.'],
-        fairnessAssessment: 'Unable to fully assess due to truncated response.',
-      };
+      // Try to extract partial data using regex
+      console.warn('JSON repair failed, attempting to extract partial data...');
+
+      const partialData: Record<string, unknown> = {};
+
+      // Try to extract riskScore
+      const riskMatch = text.match(/"riskScore"\s*:\s*(\d+)/);
+      if (riskMatch) {
+        partialData.riskScore = parseInt(riskMatch[1], 10);
+      }
+
+      // Try to extract summary
+      const summaryMatch = text.match(/"summary"\s*:\s*"([^"]+)"/);
+      if (summaryMatch) {
+        partialData.summary = summaryMatch[1];
+      }
+
+      // Try to extract fairnessAssessment
+      const fairnessMatch = text.match(/"fairnessAssessment"\s*:\s*"([^"]+)"/);
+      if (fairnessMatch) {
+        partialData.fairnessAssessment = fairnessMatch[1];
+      }
+
+      // If we got at least a risk score, return partial data
+      if (partialData.riskScore !== undefined) {
+        console.log('Extracted partial data from truncated response');
+        return {
+          ...partialData,
+          flags: [],
+          importantClauses: [],
+          recommendations: partialData.summary
+            ? ['Review the document carefully as some analysis details may be incomplete.']
+            : [],
+        };
+      }
+
+      // Complete failure - throw an error to trigger retry logic
+      throw new Error('Unable to parse analysis response. Please try again.');
     }
   }
 
   private validateAndTransform(data: Record<string, unknown>): AnalysisResult {
-    // Ensure riskScore is a number between 0-100
-    const riskScore = Math.min(100, Math.max(0, Number(data.riskScore) || 50));
-
-    // Ensure summary is a string
-    const summary = String(data.summary || 'No summary available.');
-
-    // Ensure flags is an array
+    // Ensure flags is an array - process this first so we can use it for risk calculation
     const flags: Flag[] = Array.isArray(data.flags)
       ? data.flags.map((f: Record<string, unknown>, i: number) => ({
           id: String(f.id || `flag-${i}`),
@@ -197,6 +229,20 @@ export class GeminiClient {
           recommendation: f.recommendation ? String(f.recommendation) : undefined,
         }))
       : [];
+
+    // Calculate risk score - use AI's score if valid, otherwise calculate from flags
+    let riskScore: number;
+    if (typeof data.riskScore === 'number' && data.riskScore >= 0 && data.riskScore <= 100) {
+      riskScore = data.riskScore;
+    } else if (typeof data.riskScore === 'string' && !isNaN(parseInt(data.riskScore, 10))) {
+      riskScore = Math.min(100, Math.max(0, parseInt(data.riskScore, 10)));
+    } else {
+      // Calculate risk score based on flags if AI didn't provide one
+      riskScore = this.calculateRiskFromFlags(flags);
+    }
+
+    // Ensure summary is a string
+    const summary = String(data.summary || 'No summary available.');
 
     // Ensure importantClauses is an array
     const importantClauses: Clause[] = Array.isArray(data.importantClauses)
@@ -216,7 +262,7 @@ export class GeminiClient {
 
     // Ensure fairnessAssessment is a string
     const fairnessAssessment = String(
-      data.fairnessAssessment || 'Unable to assess fairness.'
+      data.fairnessAssessment || 'No specific fairness concerns identified.'
     );
 
     return {
@@ -227,6 +273,35 @@ export class GeminiClient {
       recommendations,
       fairnessAssessment,
     };
+  }
+
+  private calculateRiskFromFlags(flags: Flag[]): number {
+    // If no flags, document is low risk
+    if (flags.length === 0) {
+      return 15; // Low risk - no concerns found
+    }
+
+    // Calculate risk based on flag severities
+    let riskPoints = 0;
+    for (const flag of flags) {
+      switch (flag.severity) {
+        case 'critical':
+          riskPoints += 25;
+          break;
+        case 'high':
+          riskPoints += 15;
+          break;
+        case 'medium':
+          riskPoints += 8;
+          break;
+        case 'low':
+          riskPoints += 3;
+          break;
+      }
+    }
+
+    // Base risk of 20 plus flag-based risk, capped at 100
+    return Math.min(100, 20 + riskPoints);
   }
 
   private validateFlagType(

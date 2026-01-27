@@ -11,7 +11,9 @@
       "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(curl:*)",
       "Bash(node:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(del \"C:\\\\Users\\\\Isaiah\\\\OneDrive\\\\Documents\\\\GitHub\\\\SignaSure-Web\\\\src\\\\app\\\\test-firestore\\\\page.tsx\")",
+      "Bash(del \"C:\\\\Users\\\\Isaiah\\\\OneDrive\\\\Documents\\\\GitHub\\\\SignaSure-Web\\\\src\\\\app\\\\api\\\\test-firestore\\\\route.ts\")"
     ]
   }
 }
