@@ -14,14 +14,15 @@ import { DocumentCard } from '@/components/documents/document-card';
 import { UploadDropzone } from '@/components/documents/upload-dropzone';
 import { DocumentTypeSelect } from '@/components/documents/document-type-select';
 import { SkeletonList } from '@/components/ui/skeleton';
-import { RoleCard } from '@/components/analysis/role-card';
 import { DocumentViewer } from '@/components/analysis/document-viewer';
 import { ResultsPanel } from '@/components/analysis/results-panel';
+import { FlagsTab } from '@/components/analysis/flags-tab';
+import { ClausesTab } from '@/components/analysis/clauses-tab';
 import { extractText } from '@/lib/ocr';
 import { saveAnalysis } from '@/lib/firebase/firestore';
-import { DOCUMENT_TYPE_LABELS, USER_ROLES, type DocumentType, type Verdict, VERDICT_LABELS, VERDICT_COLORS } from '@/types';
+import { uploadDocumentFile } from '@/lib/firebase/storage';
+import { DOCUMENT_TYPE_LABELS, USER_ROLES, type DocumentType, type Verdict, type Flag } from '@/types';
 import { cn } from '@/lib/utils';
-import { FormattedText } from '@/components/ui/formatted-text';
 import {
   FileText,
   Upload,
@@ -30,12 +31,16 @@ import {
   SlidersHorizontal,
   Loader2,
   AlertCircle,
+  AlertTriangle,
   X,
   ArrowLeft,
   RefreshCw,
+  FileCheck,
+  BarChart3,
 } from 'lucide-react';
 
 type Tab = 'upload' | 'history';
+type ResultsTab = 'analysis' | 'flags' | 'clauses';
 type SortOption = 'newest' | 'oldest' | 'name';
 type FilterOption = 'all' | 'favorites' | DocumentType;
 
@@ -68,6 +73,9 @@ export default function DashboardPage() {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Results tab state (for fallback view when Firestore fails)
+  const [resultsTab, setResultsTab] = useState<ResultsTab>('analysis');
 
   // Upload handlers
   const handleFileSelect = useCallback(async (file: File) => {
@@ -110,7 +118,7 @@ export default function DashboardPage() {
   const [analysisResult, setAnalysisResult] = useState<{
     riskScore: number;
     summary: string;
-    flags: Array<{ severity: string; title: string; description: string; recommendation?: string; whoItAffects?: string }>;
+    flags: Flag[];
     recommendations: string[];
     fairnessAssessment: string;
     // New Philippines-focused fields
@@ -158,47 +166,73 @@ export default function DashboardPage() {
         throw new Error(result.error || result.details || 'Analysis failed');
       }
 
-      // Try to save to Firestore with a 10 second timeout
+      // Save to Firestore - no timeout, just await each operation
       let docId: string | null = null;
-      const firestoreTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Firestore timeout')), 10000)
-      );
+      let saveSucceeded = false;
 
       try {
-        await Promise.race([
-          (async () => {
-            const doc = await createDocument.mutateAsync({
-              fileName: selectedFile.name,
-              fileType: selectedFile.type,
-              fileSize: selectedFile.size,
-              documentType,
-              extractedText,
-            });
-            docId = doc.id;
+        // Step 1: Create the document to get an ID
+        console.log('Creating document...');
+        const doc = await createDocument.mutateAsync({
+          fileName: selectedFile.name,
+          fileType: selectedFile.type,
+          fileSize: selectedFile.size,
+          documentType,
+          extractedText,
+        });
+        docId = doc.id;
+        console.log('Document created with ID:', docId);
 
-            const analysis = await saveAnalysis(user.uid, {
-              documentId: doc.id,
-              userId: user.uid,
-              riskScore: result.analysis.riskScore,
-              summary: result.analysis.summary,
-              flags: result.analysis.flags,
-              importantClauses: result.analysis.importantClauses,
-              recommendations: result.analysis.recommendations,
-              fairnessAssessment: result.analysis.fairnessAssessment,
-            });
-
+        // Step 2: Upload the file to Firebase Storage (non-blocking)
+        uploadDocumentFile(user.uid, doc.id, selectedFile)
+          .then(async (fileUrl) => {
+            console.log('File uploaded:', fileUrl);
             await updateDocument.mutateAsync({
               documentId: doc.id,
-              input: { analysisId: analysis.id },
+              input: { fileUrl },
             });
+          })
+          .catch((uploadErr) => {
+            console.warn('File upload failed:', uploadErr);
+          });
 
-            await incrementUsage();
-          })(),
-          firestoreTimeout
-        ]);
+        // Step 3: Save the analysis
+        console.log('Saving analysis...');
+        const analysis = await saveAnalysis(user.uid, {
+          documentId: doc.id,
+          userId: user.uid,
+          riskScore: result.analysis.riskScore,
+          summary: result.analysis.summary,
+          flags: result.analysis.flags,
+          importantClauses: result.analysis.importantClauses || [],
+          recommendations: result.analysis.recommendations,
+          fairnessAssessment: result.analysis.fairnessAssessment,
+          // Include all new Philippines-focused fields
+          assumedUserRole: result.analysis.assumedUserRole,
+          verdict: result.analysis.verdict,
+          riskBreakdown: result.analysis.riskBreakdown,
+          clarifyChecklist: result.analysis.clarifyChecklist,
+          philippinesNotes: result.analysis.philippinesNotes,
+          disclaimer: result.analysis.disclaimer,
+        });
+        console.log('Analysis saved with ID:', analysis.id);
+
+        // Step 4: Update document with analysis ID - THIS IS CRITICAL
+        console.log('Updating document with analysis ID...');
+        await updateDocument.mutateAsync({
+          documentId: doc.id,
+          input: { analysisId: analysis.id },
+        });
+        console.log('Document updated with analysisId:', analysis.id);
+
+        // Step 5: Increment usage
+        await incrementUsage();
+
+        saveSucceeded = true;
       } catch (firestoreErr) {
-        console.warn('Firestore save failed or timed out:', firestoreErr);
-        docId = null;
+        console.error('Firestore save failed:', firestoreErr);
+        // If we have a docId but save failed, still try to navigate
+        // The analysis might have been saved but the update failed
       }
 
       addToast({
@@ -207,10 +241,18 @@ export default function DashboardPage() {
         description: 'Your document has been analyzed.',
       });
 
-      if (docId) {
+      if (docId && saveSucceeded) {
+        // Small delay to ensure Firestore writes are propagated
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Redirect to analysis page with split-screen view
+        router.push(`/analysis/${docId}`);
+      } else if (docId) {
+        // Document was created but save might have partially failed
+        // Still try to navigate - the data might be there
+        await new Promise(resolve => setTimeout(resolve, 500));
         router.push(`/analysis/${docId}`);
       } else {
-        // Show results directly if Firestore failed
+        // Show results on dashboard if Firestore completely failed
         setAnalysisResult(result.analysis);
         setIsAnalyzing(false);
       }
@@ -387,20 +429,12 @@ export default function DashboardPage() {
       {activeTab === 'upload' && (
         <div className="space-y-6">
           {analysisResult ? (
-            // Show analysis results with split layout
-            <div className="space-y-6">
-              {/* Role Card - Full Width Banner */}
-              {analysisResult.assumedUserRole && (
-                <RoleCard
-                  role={analysisResult.assumedUserRole}
-                  verdict={analysisResult.verdict}
-                />
-              )}
-
-              {/* Split Layout: Document Viewer + Results Panel */}
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                {/* Document Viewer - 2/5 width on desktop */}
-                <div className="lg:col-span-2 lg:sticky lg:top-4 lg:self-start">
+            // Show analysis results with split layout - full height
+            <>
+              {/* Split Layout: Document Viewer + Tabbed Results */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[75vh]">
+                {/* Document Viewer - Left Half - Takes full height */}
+                <div className="h-full">
                   <DocumentViewer
                     fileUrl={fileUrl}
                     fileName={selectedFile?.name || 'document'}
@@ -409,9 +443,72 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                {/* Results Panel - 3/5 width on desktop */}
-                <div className="lg:col-span-3">
-                  <ResultsPanel analysis={analysisResult} />
+                {/* Tabbed Results Panel - Right Half */}
+                <div className="h-full overflow-auto flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                  {/* Tab Navigation */}
+                  <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700 mb-4">
+                    <button
+                      onClick={() => setResultsTab('analysis')}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                        resultsTab === 'analysis'
+                          ? 'border-primary-600 text-primary-600'
+                          : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      )}
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Analysis
+                    </button>
+                    <button
+                      onClick={() => setResultsTab('flags')}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                        resultsTab === 'flags'
+                          ? 'border-primary-600 text-primary-600'
+                          : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      )}
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      Flags
+                      <span className={cn(
+                        'px-1.5 py-0.5 text-xs rounded-full',
+                        resultsTab === 'flags'
+                          ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      )}>
+                        {analysisResult.flags?.length || 0}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setResultsTab('clauses')}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
+                        resultsTab === 'clauses'
+                          ? 'border-primary-600 text-primary-600'
+                          : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                      )}
+                    >
+                      <FileCheck className="h-4 w-4" />
+                      Clauses
+                    </button>
+                  </div>
+
+                  {/* Tab Content */}
+                  {resultsTab === 'analysis' && (
+                    <ResultsPanel analysis={analysisResult} />
+                  )}
+
+                  {resultsTab === 'flags' && (
+                    <FlagsTab flags={analysisResult.flags || []} />
+                  )}
+
+                  {resultsTab === 'clauses' && (
+                    <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                      <FileCheck className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>Clauses are available in saved analyses.</p>
+                      <p className="text-sm mt-1">This analysis wasn&apos;t saved to history.</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -426,7 +523,7 @@ export default function DashboardPage() {
                   Analyze Another Document
                 </Button>
               </div>
-            </div>
+            </>
           ) : isAnalyzing ? (
             <Card>
               <CardContent className="p-8 text-center">

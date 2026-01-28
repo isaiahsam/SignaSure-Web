@@ -128,6 +128,42 @@ function CollapsibleSection({
   );
 }
 
+// Match the Verdict type from @/types/analysis
+const VERDICT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  safe_to_sign: { label: 'Safe to Sign', color: 'text-green-700 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30' },
+  review_carefully: { label: 'Review Carefully', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
+  negotiate_before_signing: { label: 'Negotiate Before Signing', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+  high_risk_legal_review: { label: 'High Risk - Legal Review', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30' },
+  // Legacy values for backwards compatibility
+  negotiate_changes: { label: 'Negotiate Changes', color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+  seek_legal_advice: { label: 'Seek Legal Advice', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30' },
+  do_not_sign: { label: 'Do Not Sign', color: 'text-red-700 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30' },
+};
+
+function RoleDisplay({ role, verdict }: { role: string; verdict?: Verdict }) {
+  const verdictConfig = verdict ? VERDICT_CONFIG[verdict] : null;
+
+  return (
+    <div className="rounded-lg border border-primary-200 dark:border-primary-800 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium text-primary-600 dark:text-primary-400 uppercase tracking-wide mb-1">
+            Your Role in This Document
+          </p>
+          <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {role}
+          </p>
+        </div>
+        {verdictConfig && (
+          <span className={cn('px-3 py-1 rounded-full text-sm font-medium', verdictConfig.bg, verdictConfig.color)}>
+            {verdictConfig.label}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RiskScoreDisplay({ score, breakdown }: { score: number; breakdown?: RiskBreakdown }) {
   const getScoreColor = (score: number) => {
     if (score <= 20) return 'text-green-600';
@@ -218,6 +254,11 @@ export function ResultsPanel({ analysis, className }: ResultsPanelProps) {
     <div className={cn('space-y-4', className)}>
       {/* Risk Score */}
       <RiskScoreDisplay score={analysis.riskScore} breakdown={analysis.riskBreakdown} />
+
+      {/* Your Role - Below Risk Score, Above Summary */}
+      {analysis.assumedUserRole && (
+        <RoleDisplay role={analysis.assumedUserRole} verdict={analysis.verdict} />
+      )}
 
       {/* Summary */}
       <CollapsibleSection

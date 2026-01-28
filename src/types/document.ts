@@ -27,6 +27,7 @@ export interface Document {
   fileSize: number;
   documentType: DocumentType;
   extractedText?: string;
+  fileUrl?: string; // URL to the stored file in Firebase Storage
   analysisId?: string;
   isFavorite: boolean;
   createdAt: Date;
@@ -39,11 +40,13 @@ export interface CreateDocumentInput {
   fileSize: number;
   documentType: DocumentType;
   extractedText?: string;
+  fileUrl?: string;
 }
 
 export interface UpdateDocumentInput {
   documentType?: DocumentType;
   extractedText?: string;
+  fileUrl?: string;
   analysisId?: string;
   isFavorite?: boolean;
 }

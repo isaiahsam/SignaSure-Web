@@ -40,6 +40,9 @@ export function useDocument(documentId: string | undefined) {
       return getDocument(user.uid, documentId);
     },
     enabled: !!user && !!documentId,
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true,
+    retry: 3,
   });
 }
 
@@ -100,10 +103,17 @@ export function useAnalysis(analysisId: string | undefined) {
 
   return useQuery({
     queryKey: ['analysis', user?.uid, analysisId],
-    queryFn: () => {
+    queryFn: async () => {
       if (!user || !analysisId) return null;
-      return getAnalysis(user.uid, analysisId);
+      console.log('Fetching analysis:', analysisId);
+      const result = await getAnalysis(user.uid, analysisId);
+      console.log('Analysis result:', result);
+      return result;
     },
     enabled: !!user && !!analysisId,
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true,
+    retry: 3,
+    retryDelay: 1000, // Wait 1 second between retries
   });
 }
