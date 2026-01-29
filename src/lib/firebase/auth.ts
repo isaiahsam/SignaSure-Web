@@ -14,13 +14,8 @@ export async function signInWithGoogle(): Promise<User | null> {
     throw new Error('Firebase auth not initialized');
   }
 
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (error) {
-    console.error('Error signing in with Google:', error);
-    throw error;
-  }
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
 }
 
 export async function signOut(): Promise<void> {
@@ -28,17 +23,11 @@ export async function signOut(): Promise<void> {
     throw new Error('Firebase auth not initialized');
   }
 
-  try {
-    await firebaseSignOut(auth);
-  } catch (error) {
-    console.error('Error signing out:', error);
-    throw error;
-  }
+  await firebaseSignOut(auth);
 }
 
 export function onAuthChange(callback: (user: User | null) => void): () => void {
   if (!auth) {
-    console.warn('Firebase auth not initialized');
     // Still call the callback with null to update the state
     setTimeout(() => callback(null), 0);
     return () => {};

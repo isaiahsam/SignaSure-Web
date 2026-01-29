@@ -48,21 +48,6 @@ export default function AnalysisPage() {
   const updateDocument = useUpdateDocument();
   const deleteDocument = useDeleteDocument();
 
-  // Debug logging
-  console.log('Analysis page state:', {
-    documentId,
-    isLoadingDoc,
-    isFetchingDoc,
-    hasDocument: !!document,
-    analysisId: document?.analysisId,
-    fileUrl: document?.fileUrl,
-    fileName: document?.fileName,
-    fileType: document?.fileType,
-    isLoadingAnalysis,
-    isFetchingAnalysis,
-    hasAnalysis: !!analysis,
-  });
-
   // Refresh data when page loads - ensures we get fresh data from Firestore
   useEffect(() => {
     if (documentId && user) {

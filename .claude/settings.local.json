@@ -18,7 +18,9 @@
       "Bash(npm uninstall:*)",
       "Bash(npx next build)",
       "Bash(npx firebase-tools storage:cors:update:*)",
-      "Bash(gsutil cors set:*)"
+      "Bash(gsutil cors set:*)",
+      "Bash(wc -l \"C:\\\\Users\\\\Isaiah\\\\OneDrive\\\\Documents\\\\GitHub\\\\SignaSure-Web\\\\src\"/**/*.{ts,tsx})",
+      "Bash(npx next lint:*)"
     ]
   }
 }

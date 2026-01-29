@@ -83,7 +83,7 @@ export function Footer() {
         <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              &copy; {currentYear} SignaSure. All rights reserved.
+              &copy; {currentYear} LoomaLabs. All rights reserved.
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500 text-center md:text-right max-w-md">
               Disclaimer: SignaSure provides AI-powered analysis for informational purposes

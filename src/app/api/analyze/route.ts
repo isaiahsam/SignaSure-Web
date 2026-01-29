@@ -2,8 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GeminiClient } from '@/lib/gemini/client';
 import type { DocumentType, AnalysisResponse } from '@/types';
 
+// Allowed document types for validation
+const ALLOWED_DOCUMENT_TYPES: DocumentType[] = [
+  'employment',
+  'lease',
+  'nda',
+  'service',
+  'purchase',
+  'loan',
+  'partnership',
+  'other',
+];
+
+// Maximum text length allowed (50KB of text)
+const MAX_TEXT_LENGTH = 50000;
+
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
+    // Check for authorization header (Firebase ID token)
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { extractedText, documentType, documentId, userRole } = body as {
       extractedText: string;
@@ -12,6 +39,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       userRole?: string;
     };
 
+    // Validate required fields
     if (!extractedText || !documentType || !documentId) {
       return NextResponse.json(
         {
@@ -22,9 +50,41 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       );
     }
 
+    // Validate document type
+    if (!ALLOWED_DOCUMENT_TYPES.includes(documentType)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid document type',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate text length
+    if (extractedText.length > MAX_TEXT_LENGTH) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Document text exceeds maximum allowed length',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate text has meaningful content
+    if (extractedText.trim().length < 50) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Document text is too short for analysis',
+        },
+        { status: 400 }
+      );
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error('GEMINI_API_KEY is not configured');
       return NextResponse.json(
         {
           success: false,
@@ -48,14 +108,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       },
     });
   } catch (error) {
-    console.error('Error in analyze API:', error);
+    // Log errors server-side only (not exposed to client)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error in analyze API:', error);
+    }
 
-    let errorMessage = 'An unexpected error occurred';
+    let errorMessage = 'An unexpected error occurred during analysis';
     if (error instanceof Error) {
-      errorMessage = error.message;
-      // Include stack trace in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Stack trace:', error.stack);
+      // Only expose safe error messages to client
+      if (error.message.includes('timed out')) {
+        errorMessage = 'Analysis timed out. Please try again.';
+      } else if (error.message.includes('rate limit')) {
+        errorMessage = 'Service is busy. Please wait a moment and try again.';
       }
     }
 
@@ -63,8 +127,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       {
         success: false,
         error: errorMessage,
-        // Include more details in development
-        details: process.env.NODE_ENV === 'development' ? String(error) : undefined,
       },
       { status: 500 }
     );

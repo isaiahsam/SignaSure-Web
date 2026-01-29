@@ -106,8 +106,7 @@ export class GeminiClient {
         let parsed;
         try {
           parsed = JSON.parse(cleanedText);
-        } catch (parseError) {
-          console.warn('JSON parse failed, attempting to repair...', parseError);
+        } catch {
           // Try to repair truncated JSON
           parsed = this.repairAndParseJSON(cleanedText);
         }
@@ -115,7 +114,6 @@ export class GeminiClient {
         // Validate and transform the response
         return this.validateAndTransform(parsed);
       } catch (error) {
-        console.error(`Error analyzing document (attempt ${attempt}/${maxRetries}):`, error);
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Check if this is a rate limit error - if so, wait and retry
@@ -128,7 +126,6 @@ export class GeminiClient {
         if (isRateLimit && attempt < maxRetries) {
           // Exponential backoff: 10s, 20s, 40s
           const waitTime = 10000 * Math.pow(2, attempt - 1);
-          console.log(`Rate limited. Waiting ${waitTime / 1000}s before retry...`);
           await delay(waitTime);
           continue;
         }
@@ -208,8 +205,6 @@ export class GeminiClient {
       return JSON.parse(repaired);
     } catch {
       // Try to extract partial data using regex
-      console.warn('JSON repair failed, attempting to extract partial data...');
-
       const partialData: Record<string, unknown> = {};
 
       // Try to extract riskScore
@@ -232,7 +227,6 @@ export class GeminiClient {
 
       // If we got at least a risk score, return partial data
       if (partialData.riskScore !== undefined) {
-        console.log('Extracted partial data from truncated response');
         return {
           ...partialData,
           flags: [],

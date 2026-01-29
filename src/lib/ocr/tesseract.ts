@@ -10,17 +10,9 @@ if (typeof window !== 'undefined') {
 
 export async function extractTextFromImage(imageFile: File): Promise<string> {
   try {
-    const result = await Tesseract.recognize(imageFile, 'eng', {
-      logger: (m) => {
-        if (m.status === 'recognizing text') {
-          console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
-        }
-      },
-    });
-
+    const result = await Tesseract.recognize(imageFile, 'eng');
     return result.data.text.trim();
-  } catch (error) {
-    console.error('Error extracting text from image:', error);
+  } catch {
     throw new Error('Failed to extract text from image');
   }
 }
@@ -45,8 +37,7 @@ export async function extractTextFromPDF(pdfFile: File): Promise<string> {
     }
 
     return fullText.trim();
-  } catch (error) {
-    console.error('Error extracting text from PDF:', error);
+  } catch {
     throw new Error('Failed to extract text from PDF');
   }
 }
@@ -120,8 +111,7 @@ export async function extractTextFromScannedPDF(
     await worker.terminate();
 
     return fullText.trim();
-  } catch (error) {
-    console.error('Error extracting text from scanned PDF:', error);
+  } catch {
     throw new Error('Failed to extract text from scanned PDF. Please ensure the PDF contains readable text or try a clearer scan.');
   }
 }

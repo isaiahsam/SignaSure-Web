@@ -34,8 +34,9 @@ export function useRateLimit() {
 
   const currentCount = usage?.analysisCount || 0;
   const remainingAnalyses = Math.max(0, DAILY_LIMIT - currentCount);
-  // Always allow analysis if Firestore fails (isError) or still loading
-  const canAnalyze = isError || isLoading || remainingAnalyses > 0;
+  // Only allow analysis if we have confirmed remaining analyses
+  // Block if loading (wait for confirmation) or if limit reached
+  const canAnalyze = !isLoading && !isError && remainingAnalyses > 0;
 
   return {
     currentCount,

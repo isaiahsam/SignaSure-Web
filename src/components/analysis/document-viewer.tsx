@@ -33,9 +33,6 @@ export function DocumentViewer({
   const [error, setError] = useState<string | null>(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
 
-  // Debug logging
-  console.log('DocumentViewer props:', { fileUrl, fileName, fileType });
-
   const isPdf = fileType === 'application/pdf';
   const isImage = fileType.startsWith('image/');
 

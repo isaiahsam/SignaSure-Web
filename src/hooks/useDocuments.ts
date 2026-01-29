@@ -105,9 +105,7 @@ export function useAnalysis(analysisId: string | undefined) {
     queryKey: ['analysis', user?.uid, analysisId],
     queryFn: async () => {
       if (!user || !analysisId) return null;
-      console.log('Fetching analysis:', analysisId);
       const result = await getAnalysis(user.uid, analysisId);
-      console.log('Analysis result:', result);
       return result;
     },
     enabled: !!user && !!analysisId,

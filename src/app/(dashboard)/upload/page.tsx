@@ -62,45 +62,46 @@ export default function UploadPage() {
   const [analysisResult, setAnalysisResult] = useState<DocumentAnalysis | null>(null);
 
   const handleAnalyze = async () => {
-    alert('Analyze button clicked!'); // Debug alert
-    console.log('handleAnalyze called', { user: !!user, selectedFile: !!selectedFile, extractedText: extractedText.length });
-
     if (!user || !selectedFile || !extractedText) {
-      console.log('Missing required data, returning early');
-      alert('Missing data: user=' + !!user + ', file=' + !!selectedFile + ', text=' + extractedText.length);
       return;
     }
 
-    // Skip rate limit check if Firestore is having issues - allow analysis to proceed
+    // Enforce rate limit
     if (!canAnalyze) {
-      console.log('Rate limit check failed, but continuing anyway');
+      addToast({
+        type: 'error',
+        title: 'Daily limit reached',
+        description: 'Please wait until tomorrow to analyze more documents.',
+      });
+      return;
     }
 
     setStep('analyzing');
     setError(null);
 
     try {
-      console.log('Calling /api/analyze...');
-      // Call the analysis API first (this is the important part)
+      // Get auth token for API authentication
+      const token = await user.getIdToken();
+
+      // Call the analysis API
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           documentId: 'temp-' + Date.now(),
           extractedText,
           documentType,
         }),
       });
-      console.log('API response status:', response.status);
 
       const result = await response.json();
-      console.log('API result:', result.success ? 'success' : 'failed', result.error || '');
 
       if (!result.success) {
         throw new Error(result.error || 'Analysis failed');
       }
-
-      console.log('Analysis successful, risk score:', result.analysis?.riskScore);
 
       // Try to save to Firestore with a 10 second timeout
       let docId: string | null = null;
@@ -109,7 +110,6 @@ export default function UploadPage() {
       );
 
       try {
-        console.log('Attempting to save to Firestore...');
         await Promise.race([
           (async () => {
             const doc = await createDocument.mutateAsync({
@@ -120,7 +120,6 @@ export default function UploadPage() {
               extractedText,
             });
             docId = doc.id;
-            console.log('Document created:', doc.id);
 
             const analysis = await saveAnalysis(user.uid, {
               documentId: doc.id,
@@ -132,7 +131,6 @@ export default function UploadPage() {
               recommendations: result.analysis.recommendations,
               fairnessAssessment: result.analysis.fairnessAssessment,
             });
-            console.log('Analysis saved:', analysis.id);
 
             await updateDocument.mutateAsync({
               documentId: doc.id,
@@ -140,12 +138,10 @@ export default function UploadPage() {
             });
 
             await incrementUsage();
-            console.log('Firestore save complete');
           })(),
           firestoreTimeout
         ]);
-      } catch (firestoreErr) {
-        console.warn('Firestore save failed or timed out, showing results anyway:', firestoreErr);
+      } catch {
         docId = null; // Ensure we show results directly
       }
 
@@ -157,16 +153,13 @@ export default function UploadPage() {
 
       // If Firestore worked, navigate to the saved analysis
       if (docId) {
-        console.log('Navigating to analysis page:', docId);
         router.push(`/analysis/${docId}`);
       } else {
         // Otherwise, show results directly on this page
-        console.log('Showing results directly on page');
         setAnalysisResult(result.analysis);
         setStep('complete');
       }
     } catch (err) {
-      console.error('Analysis error:', err);
       setError(err instanceof Error ? err.message : 'Analysis failed');
       setStep('configure');
       addToast({

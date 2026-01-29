@@ -1,8 +1,8 @@
 [
   {
-    "origin": ["http://localhost:3000", "http://localhost:3001", "https://signasure2025.web.app", "https://signasure2025.firebaseapp.com"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-    "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"]
+    "origin": ["https://signasure2025.web.app", "https://signasure2025.firebaseapp.com"],
+    "method": ["GET", "POST", "PUT", "HEAD"],
+    "maxAgeSeconds": 600,
+    "responseHeader": ["Content-Type", "Content-Length", "x-goog-resumable"]
   }
 ]

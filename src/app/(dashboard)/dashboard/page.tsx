@@ -147,41 +147,50 @@ export default function DashboardPage() {
   const handleAnalyze = useCallback(async () => {
     if (!user || !selectedFile || !extractedText) return;
 
-    // Skip rate limit check if Firestore is having issues
+    // Enforce rate limit
     if (!canAnalyze) {
-      console.log('Rate limit check failed, but continuing anyway');
+      addToast({
+        type: 'error',
+        title: 'Daily limit reached',
+        description: 'Please wait until tomorrow to analyze more documents.',
+      });
+      return;
     }
 
     setIsAnalyzing(true);
     setUploadError(null);
 
     try {
-      // Call the AI API FIRST (this is the important part)
+      // Get auth token for API authentication
+      const token = await user.getIdToken();
+
+      // Call the AI API
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           documentId: 'temp-' + Date.now(),
           extractedText,
           documentType,
-          userRole: userRole || undefined, // Only pass if user selected a role
+          userRole: userRole || undefined,
         }),
       });
 
       const result = await response.json();
-      console.log('API response:', result);
 
       if (!result.success) {
         throw new Error(result.error || result.details || 'Analysis failed');
       }
 
-      // Save to Firestore - no timeout, just await each operation
+      // Save to Firestore
       let docId: string | null = null;
       let saveSucceeded = false;
 
       try {
-        // Step 1: Create the document to get an ID
-        console.log('Creating document...');
+        // Step 1: Create the document
         const doc = await createDocument.mutateAsync({
           fileName: selectedFile.name,
           fileType: selectedFile.type,
@@ -190,28 +199,21 @@ export default function DashboardPage() {
           extractedText,
         });
         docId = doc.id;
-        console.log('Document created with ID:', docId);
 
-        // Step 2: Convert file to base64 and store in Firestore (free alternative to Storage)
-        // Works for files under ~750KB
-        console.log('Converting file to base64...');
+        // Step 2: Convert file to base64 for files under 750KB
         try {
-          if (selectedFile.size < 750000) { // ~750KB limit for safety
+          if (selectedFile.size < 750000) {
             const base64Url = await fileToBase64(selectedFile);
             await updateDocument.mutateAsync({
               documentId: doc.id,
               input: { fileUrl: base64Url },
             });
-            console.log('File saved as base64');
-          } else {
-            console.warn('File too large for base64 storage (>750KB)');
           }
-        } catch (base64Err) {
-          console.warn('Failed to convert file to base64:', base64Err);
+        } catch {
+          // Continue without file preview
         }
 
         // Step 3: Save the analysis
-        console.log('Saving analysis...');
         const analysis = await saveAnalysis(user.uid, {
           documentId: doc.id,
           userId: user.uid,
@@ -221,7 +223,6 @@ export default function DashboardPage() {
           importantClauses: result.analysis.importantClauses || [],
           recommendations: result.analysis.recommendations,
           fairnessAssessment: result.analysis.fairnessAssessment,
-          // Include all new Philippines-focused fields
           assumedUserRole: result.analysis.assumedUserRole,
           verdict: result.analysis.verdict,
           riskBreakdown: result.analysis.riskBreakdown,
@@ -229,24 +230,19 @@ export default function DashboardPage() {
           philippinesNotes: result.analysis.philippinesNotes,
           disclaimer: result.analysis.disclaimer,
         });
-        console.log('Analysis saved with ID:', analysis.id);
 
-        // Step 4: Update document with analysis ID - THIS IS CRITICAL
-        console.log('Updating document with analysis ID...');
+        // Step 4: Update document with analysis ID
         await updateDocument.mutateAsync({
           documentId: doc.id,
           input: { analysisId: analysis.id },
         });
-        console.log('Document updated with analysisId:', analysis.id);
 
         // Step 5: Increment usage
         await incrementUsage();
 
         saveSucceeded = true;
-      } catch (firestoreErr) {
-        console.error('Firestore save failed:', firestoreErr);
+      } catch {
         // If we have a docId but save failed, still try to navigate
-        // The analysis might have been saved but the update failed
       }
 
       addToast({
