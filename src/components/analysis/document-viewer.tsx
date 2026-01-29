@@ -33,6 +33,9 @@ export function DocumentViewer({
   const [error, setError] = useState<string | null>(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
 
+  // Debug logging
+  console.log('DocumentViewer props:', { fileUrl, fileName, fileType });
+
   const isPdf = fileType === 'application/pdf';
   const isImage = fileType.startsWith('image/');
 
@@ -66,11 +69,11 @@ export function DocumentViewer({
         {/* No Preview Message */}
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50 dark:bg-slate-900">
           <FileText className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
-            Document Preview Unavailable
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+            Preview Not Available
           </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
-            The original file could not be loaded for preview
+          <p className="text-xs text-slate-400 dark:text-slate-500 max-w-[250px]">
+            File may be too large (&gt;750KB) or was uploaded before this feature. Analysis is shown on the right.
           </p>
         </div>
       </div>

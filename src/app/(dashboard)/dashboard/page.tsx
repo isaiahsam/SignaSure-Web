@@ -20,7 +20,16 @@ import { FlagsTab } from '@/components/analysis/flags-tab';
 import { ClausesTab } from '@/components/analysis/clauses-tab';
 import { extractText } from '@/lib/ocr';
 import { saveAnalysis } from '@/lib/firebase/firestore';
-import { uploadDocumentFile } from '@/lib/firebase/storage';
+
+// Convert file to base64 data URL (for storing in Firestore)
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 import { DOCUMENT_TYPE_LABELS, USER_ROLES, type DocumentType, type Verdict, type Flag } from '@/types';
 import { cn } from '@/lib/utils';
 import {
@@ -183,18 +192,23 @@ export default function DashboardPage() {
         docId = doc.id;
         console.log('Document created with ID:', docId);
 
-        // Step 2: Upload the file to Firebase Storage (non-blocking)
-        uploadDocumentFile(user.uid, doc.id, selectedFile)
-          .then(async (fileUrl) => {
-            console.log('File uploaded:', fileUrl);
+        // Step 2: Convert file to base64 and store in Firestore (free alternative to Storage)
+        // Works for files under ~750KB
+        console.log('Converting file to base64...');
+        try {
+          if (selectedFile.size < 750000) { // ~750KB limit for safety
+            const base64Url = await fileToBase64(selectedFile);
             await updateDocument.mutateAsync({
               documentId: doc.id,
-              input: { fileUrl },
+              input: { fileUrl: base64Url },
             });
-          })
-          .catch((uploadErr) => {
-            console.warn('File upload failed:', uploadErr);
-          });
+            console.log('File saved as base64');
+          } else {
+            console.warn('File too large for base64 storage (>750KB)');
+          }
+        } catch (base64Err) {
+          console.warn('Failed to convert file to base64:', base64Err);
+        }
 
         // Step 3: Save the analysis
         console.log('Saving analysis...');
