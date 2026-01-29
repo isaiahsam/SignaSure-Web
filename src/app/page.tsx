@@ -44,10 +44,9 @@ export default function LandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <FileText className="h-6 w-6 text-primary-600" />
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              SignaSure
+          <Link href="/" className="flex items-center">
+            <span className="text-2xl font-extrabold font-brand text-primary-600">
+              SIGNASURE
             </span>
           </Link>
 

@@ -5,6 +5,15 @@ const path = require('path');
 const nextConfig = {
   poweredByHeader: false,
   compress: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/dfi78jkbg/**',
+      },
+    ],
+  },
   async headers() {
     return [
       {

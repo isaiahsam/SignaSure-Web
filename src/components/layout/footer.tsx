@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText } from 'lucide-react';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -11,10 +10,9 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <FileText className="h-6 w-6 text-primary-600" />
-              <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                SignaSure
+            <div className="mb-4">
+              <span className="text-2xl font-extrabold font-brand text-primary-600">
+                SIGNASURE
               </span>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md">

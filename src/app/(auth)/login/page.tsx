@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FileText, Shield, Zap, CheckCircle } from 'lucide-react';
+import { Shield, Zap, CheckCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
@@ -41,9 +41,8 @@ export default function LoginPage() {
       {/* Left side - Branding */}
       <div className="lg:flex-1 bg-primary-600 p-8 lg:p-12 flex flex-col justify-center">
         <div className="max-w-md mx-auto lg:mx-0">
-          <Link href="/" className="flex items-center gap-2 mb-8">
-            <FileText className="h-8 w-8 text-white" />
-            <span className="text-2xl font-bold text-white">SignaSure</span>
+          <Link href="/" className="flex items-center mb-8">
+            <span className="text-3xl font-extrabold font-brand text-white">SIGNASURE</span>
           </Link>
 
           <h1 className="text-3xl lg:text-4xl font-bold text-white mb-4">

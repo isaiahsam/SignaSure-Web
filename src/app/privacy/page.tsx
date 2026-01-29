@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FileText, ArrowLeft, Shield, Lock, Eye, Database, Globe, Mail, Trash2 } from 'lucide-react';
+import { ArrowLeft, Shield, Lock, Eye, Database, Globe, Mail, Trash2 } from 'lucide-react';
 
 export const metadata = {
   title: 'Privacy Policy - SignaSure',
@@ -12,9 +12,8 @@ export default function PrivacyPolicyPage() {
       {/* Header */}
       <header className="border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <FileText className="h-6 w-6 text-primary-600" />
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">SignaSure</span>
+          <Link href="/" className="flex items-center">
+            <span className="text-2xl font-extrabold font-brand text-primary-600">SIGNASURE</span>
           </Link>
           <Link
             href="/"

@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   Settings,
-  FileText,
 } from 'lucide-react';
 
 const navItems = [
@@ -45,10 +44,9 @@ export function Sidebar() {
 
           <div className="px-4 mt-auto">
             <div className="p-4 rounded-lg bg-slate-100 dark:bg-slate-800">
-              <div className="flex items-center gap-3 mb-2">
-                <FileText className="h-5 w-5 text-primary-600" />
-                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  SignaSure
+              <div className="mb-2">
+                <span className="text-base font-extrabold font-brand text-primary-600">
+                  SIGNASURE
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
