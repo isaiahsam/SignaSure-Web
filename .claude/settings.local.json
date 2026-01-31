@@ -20,7 +20,10 @@
       "Bash(npx firebase-tools storage:cors:update:*)",
       "Bash(gsutil cors set:*)",
       "Bash(wc -l \"C:\\\\Users\\\\Isaiah\\\\OneDrive\\\\Documents\\\\GitHub\\\\SignaSure-Web\\\\src\"/**/*.{ts,tsx})",
-      "Bash(npx next lint:*)"
+      "Bash(npx next lint:*)",
+      "Bash(npm view:*)",
+      "Bash(python -c:*)",
+      "Bash(npm audit:*)"
     ]
   }
 }
