@@ -23,7 +23,8 @@
       "Bash(npx next lint:*)",
       "Bash(npm view:*)",
       "Bash(python -c:*)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(del \"public\\\\pdf.worker.min.mjs\")"
     ]
   }
 }

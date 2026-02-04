@@ -3,9 +3,9 @@
 import Tesseract from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker - use the copy in public folder
+// Configure PDF.js worker - load from CDN to avoid webpack/Terser issues
 if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 }
 
 export async function extractTextFromImage(imageFile: File): Promise<string> {
