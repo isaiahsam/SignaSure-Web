@@ -37,33 +37,66 @@ export function DocumentViewer({
   const isPdf = fileType === 'application/pdf';
   const isImage = fileType.startsWith('image/');
 
-  // Fetch the PDF as a blob to bypass Firebase Storage's X-Frame-Options header
+  // Convert the PDF URL to a blob URL to bypass CSP and X-Frame-Options restrictions.
+  // The fileUrl may be a data: URI (base64) or an https: URL (Firebase Storage).
   useEffect(() => {
     if (!fileUrl || !isPdf) return;
 
     let revoked = false;
-    const controller = new AbortController();
 
-    fetch(fileUrl, { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch PDF');
-        return res.blob();
-      })
-      .then((blob) => {
-        if (revoked) return;
+    if (fileUrl.startsWith('data:')) {
+      // Convert data URI to blob directly (no fetch needed, avoids CSP connect-src issues)
+      try {
+        const [header, base64Data] = fileUrl.split(',');
+        const mimeMatch = header.match(/data:(.*?)(;|$)/);
+        const mime = mimeMatch ? mimeMatch[1] : 'application/pdf';
+        const binary = atob(base64Data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: mime });
         const url = URL.createObjectURL(blob);
-        setBlobUrl(url);
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return;
-        console.error('Failed to fetch PDF as blob:', err);
-        setError('Failed to load PDF preview');
-        setIsLoading(false);
-      });
+        if (!revoked) setBlobUrl(url);
+      } catch (err) {
+        console.error('Failed to convert data URI to blob:', err);
+        if (!revoked) {
+          setError('Failed to load PDF preview');
+          setIsLoading(false);
+        }
+      }
+    } else {
+      // For https URLs (e.g. Firebase Storage), fetch as blob
+      const controller = new AbortController();
+      fetch(fileUrl, { signal: controller.signal })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to fetch PDF');
+          return res.blob();
+        })
+        .then((blob) => {
+          if (revoked) return;
+          const url = URL.createObjectURL(blob);
+          setBlobUrl(url);
+        })
+        .catch((err) => {
+          if (err.name === 'AbortError') return;
+          console.error('Failed to fetch PDF as blob:', err);
+          setError('Failed to load PDF preview');
+          setIsLoading(false);
+        });
+
+      return () => {
+        revoked = true;
+        controller.abort();
+        setBlobUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+      };
+    }
 
     return () => {
       revoked = true;
-      controller.abort();
       setBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -76,8 +109,10 @@ export function DocumentViewer({
   const resetZoom = () => setScale(1.0);
 
   const openInNewTab = () => {
-    if (fileUrl) {
-      window.open(fileUrl, '_blank');
+    // Prefer blob URL (works better than data URIs in new tabs)
+    const urlToOpen = blobUrl || fileUrl;
+    if (urlToOpen) {
+      window.open(urlToOpen, '_blank');
     }
   };
 
