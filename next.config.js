@@ -54,7 +54,7 @@ const nextConfig = {
               "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://firebasestorage.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://generativelanguage.googleapis.com",
-              "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
+              "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://firebasestorage.googleapis.com blob:",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
