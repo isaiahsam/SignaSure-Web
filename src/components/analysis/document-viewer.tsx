@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileText,
   ZoomIn,
@@ -32,9 +32,44 @@ export function DocumentViewer({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   const isPdf = fileType === 'application/pdf';
   const isImage = fileType.startsWith('image/');
+
+  // Fetch the PDF as a blob to bypass Firebase Storage's X-Frame-Options header
+  useEffect(() => {
+    if (!fileUrl || !isPdf) return;
+
+    let revoked = false;
+    const controller = new AbortController();
+
+    fetch(fileUrl, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch PDF');
+        return res.blob();
+      })
+      .then((blob) => {
+        if (revoked) return;
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        console.error('Failed to fetch PDF as blob:', err);
+        setError('Failed to load PDF preview');
+        setIsLoading(false);
+      });
+
+    return () => {
+      revoked = true;
+      controller.abort();
+      setBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [fileUrl, isPdf]);
 
   const zoomIn = () => setScale((prev) => Math.min(2.5, prev + 0.25));
   const zoomOut = () => setScale((prev) => Math.max(0.5, prev - 0.25));
@@ -45,6 +80,9 @@ export function DocumentViewer({
       window.open(fileUrl, '_blank');
     }
   };
+
+  // The URL to use for iframe src — prefer blobUrl for PDFs to bypass CORS/frame restrictions
+  const iframeSrc = isPdf ? blobUrl : fileUrl;
 
   // If no fileUrl, show a message that preview is not available
   if (!fileUrl) {
@@ -106,16 +144,23 @@ export function DocumentViewer({
                 </button>
               </div>
             </div>
-            <iframe
-              src={`${fileUrl}#toolbar=1&navpanes=1&scrollbar=1`}
-              className="flex-1 w-full"
-              title={fileName}
-            />
+            {iframeSrc ? (
+              <iframe
+                src={`${iframeSrc}#toolbar=1&navpanes=1&scrollbar=1`}
+                className="flex-1 w-full"
+                title={fileName}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+              </div>
+            )}
           </div>
         </div>
         {/* Keep the small preview visible behind */}
         <DocumentViewerContent
           fileUrl={fileUrl}
+          iframeSrc={iframeSrc}
           fileName={fileName}
           className={className}
           scale={scale}
@@ -138,6 +183,7 @@ export function DocumentViewer({
   return (
     <DocumentViewerContent
       fileUrl={fileUrl}
+      iframeSrc={iframeSrc}
       fileName={fileName}
       className={className}
       scale={scale}
@@ -158,6 +204,7 @@ export function DocumentViewer({
 
 interface DocumentViewerContentProps {
   fileUrl: string;
+  iframeSrc: string | null;
   fileName: string;
   className?: string;
   scale: number;
@@ -176,6 +223,7 @@ interface DocumentViewerContentProps {
 
 function DocumentViewerContent({
   fileUrl,
+  iframeSrc,
   fileName,
   className,
   scale,
@@ -264,21 +312,23 @@ function DocumentViewerContent({
       <div className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-900 relative">
         {isPdf && !error ? (
           <>
-            {isLoading && (
+            {(isLoading || !iframeSrc) && (
               <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-900 z-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
               </div>
             )}
-            <iframe
-              src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-              className="w-full h-full min-h-[500px]"
-              title={fileName}
-              onLoad={() => setIsLoading(false)}
-              onError={() => {
-                setError('Failed to load PDF');
-                setIsLoading(false);
-              }}
-            />
+            {iframeSrc && (
+              <iframe
+                src={`${iframeSrc}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                className="w-full h-full min-h-[500px]"
+                title={fileName}
+                onLoad={() => setIsLoading(false)}
+                onError={() => {
+                  setError('Failed to load PDF');
+                  setIsLoading(false);
+                }}
+              />
+            )}
           </>
         ) : isImage && !error ? (
           <div className="flex justify-center items-center p-4 min-h-full">
