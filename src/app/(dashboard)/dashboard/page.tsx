@@ -14,6 +14,7 @@ import { DocumentCard } from '@/components/documents/document-card';
 import { UploadDropzone } from '@/components/documents/upload-dropzone';
 import { DocumentTypeSelect } from '@/components/documents/document-type-select';
 import { SkeletonList } from '@/components/ui/skeleton';
+import { PenSpinner } from '@/components/ui/pen-loader';
 import { DocumentViewer } from '@/components/analysis/document-viewer';
 import { ResultsPanel } from '@/components/analysis/results-panel';
 import { FlagsTab } from '@/components/analysis/flags-tab';
@@ -38,7 +39,6 @@ import {
   Zap,
   Search,
   SlidersHorizontal,
-  Loader2,
   AlertCircle,
   AlertTriangle,
   X,
@@ -231,10 +231,10 @@ export default function DashboardPage() {
           disclaimer: result.analysis.disclaimer,
         });
 
-        // Step 4: Update document with analysis ID
+        // Step 4: Update document with analysis ID and risk score
         await updateDocument.mutateAsync({
           documentId: doc.id,
-          input: { analysisId: analysis.id },
+          input: { analysisId: analysis.id, riskScore: result.analysis.riskScore },
         });
 
         // Step 5: Increment usage
@@ -422,6 +422,7 @@ export default function DashboardPage() {
           Upload
         </button>
         <button
+          data-tour="history-tab"
           onClick={() => setActiveTab('history')}
           className={cn(
             'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
@@ -439,12 +440,12 @@ export default function DashboardPage() {
       {activeTab === 'upload' && (
         <div className="space-y-6">
           {analysisResult ? (
-            // Show analysis results with split layout - full height
+            // Show analysis results with split layout
             <>
-              {/* Split Layout: Document Viewer + Tabbed Results */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[75vh]">
-                {/* Document Viewer - Left Half - Takes full height */}
-                <div className="h-full">
+              {/* Split Layout: Analysis first on mobile, side-by-side on desktop */}
+              <div className="flex flex-col lg:flex-row gap-4 lg:h-[75vh]">
+                {/* Document Viewer — below analysis on mobile, left on desktop */}
+                <div className="order-2 lg:order-1 w-full lg:w-[450px] lg:shrink-0 h-[200px] lg:h-full">
                   <DocumentViewer
                     fileUrl={fileUrl}
                     fileName={selectedFile?.name || 'document'}
@@ -453,8 +454,8 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                {/* Tabbed Results Panel - Right Half */}
-                <div className="h-full overflow-auto flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                {/* Tabbed Results Panel — first on mobile, right on desktop */}
+                <div className="order-1 lg:order-2 flex-1 min-w-0 lg:h-full overflow-hidden flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                   {/* Tab Navigation */}
                   <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700 mb-4">
                     <button
@@ -537,7 +538,9 @@ export default function DashboardPage() {
           ) : isAnalyzing ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary-600 mx-auto mb-4" />
+                <div className="flex justify-center mb-4">
+                  <PenSpinner className="w-16 h-16" />
+                </div>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
                   Analyzing Your Document
                 </h2>
@@ -547,7 +550,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           ) : !selectedFile || !extractedText ? (
-            <Card>
+            <Card data-tour="upload-area">
               <CardHeader>
                 <CardTitle>Upload Document</CardTitle>
               </CardHeader>
@@ -709,6 +712,7 @@ export default function DashboardPage() {
                 <DocumentCard
                   key={doc.id}
                   document={doc}
+                  riskScore={doc.riskScore}
                   onToggleFavorite={handleToggleFavorite}
                   onDelete={handleDelete}
                 />

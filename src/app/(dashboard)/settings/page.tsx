@@ -3,6 +3,9 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useRateLimit } from '@/hooks/useRateLimit';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { useTourStore } from '@/stores/tour-store';
+import { updateUserProfile } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,13 +23,18 @@ import {
   FileText,
   Shield,
   ExternalLink,
+  RotateCcw,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { currentCount, remainingAnalyses, dailyLimit } = useRateLimit();
+  const { invalidate } = useUserProfile();
+  const { startTour } = useTourStore();
+  const router = useRouter();
 
   const themeOptions = [
     { value: 'light', label: 'Light', icon: Sun },
@@ -268,6 +276,33 @@ export default function SettingsPage() {
               SignaSure v1.0.0 &copy; {new Date().getFullYear()} LoomaLabs. All rights reserved.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Restart Tour */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RotateCcw className="h-5 w-5 text-primary-500" />
+            App Tour
+          </CardTitle>
+          <CardDescription>Replay the guided tour of SignaSure</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              if (user) {
+                await updateUserProfile(user.uid, { hasCompletedTour: false });
+                invalidate();
+                router.push('/dashboard');
+                setTimeout(() => startTour(), 600);
+              }
+            }}
+            leftIcon={<RotateCcw className="h-4 w-4" />}
+          >
+            Restart Tour
+          </Button>
         </CardContent>
       </Card>
 

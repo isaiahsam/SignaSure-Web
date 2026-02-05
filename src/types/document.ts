@@ -29,6 +29,7 @@ export interface Document {
   extractedText?: string;
   fileUrl?: string; // URL to the stored file in Firebase Storage
   analysisId?: string;
+  riskScore?: number;
   isFavorite: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -48,5 +49,6 @@ export interface UpdateDocumentInput {
   extractedText?: string;
   fileUrl?: string;
   analysisId?: string;
+  riskScore?: number;
   isFavorite?: boolean;
 }

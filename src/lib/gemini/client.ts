@@ -76,9 +76,9 @@ export class GeminiClient {
           model.generateContent({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
-              temperature: 0.3,
-              topK: 40,
-              topP: 0.95,
+              temperature: 0,
+              topK: 1,
+              topP: 1,
               maxOutputTokens: 16384, // Increased from 4096 to handle detailed analysis
               responseMimeType: 'application/json',
             },

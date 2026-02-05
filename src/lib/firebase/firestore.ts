@@ -62,6 +62,37 @@ export async function getUserProfile(userId: string): Promise<DocumentData | nul
   return convertTimestamps(snapshot.data());
 }
 
+export async function updateUserProfile(
+  userId: string,
+  data: Record<string, unknown>
+): Promise<void> {
+  if (!db) throw new Error('Firestore not initialized');
+
+  const userRef = doc(db, 'users', userId);
+  await setDoc(
+    userRef,
+    {
+      ...data,
+      updatedAt: Timestamp.now(),
+    },
+    { merge: true }
+  );
+}
+
+export async function acceptTermsOfService(userId: string): Promise<void> {
+  await updateUserProfile(userId, {
+    hasAcceptedTerms: true,
+    termsAcceptedAt: Timestamp.now(),
+  });
+}
+
+export async function completeTour(userId: string): Promise<void> {
+  await updateUserProfile(userId, {
+    hasCompletedTour: true,
+    tourCompletedAt: Timestamp.now(),
+  });
+}
+
 // Document operations
 export async function createDocument(
   userId: string,

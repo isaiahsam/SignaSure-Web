@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { cn, formatDate, formatFileSize, getRiskColor, getRiskLabel } from '@/lib/utils';
+import { cn, formatDate, formatFileSize, getRiskColor, getRiskLabel, getRiskBarColor } from '@/lib/utils';
 import { DOCUMENT_TYPE_LABELS, Document } from '@/types';
 import { FileText, Star, MoreVertical, Trash2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,8 +35,11 @@ export function DocumentCard({
   }, []);
 
   return (
-    <div className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start gap-4">
+    <div className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow flex">
+      {riskScore !== undefined && (
+        <div className={cn('w-1.5 shrink-0 rounded-l-xl', getRiskBarColor(riskScore))} />
+      )}
+      <div className="flex items-start gap-4 flex-1 min-w-0 p-4">
         <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-700">
           <FileText className="h-6 w-6 text-slate-600 dark:text-slate-400" />
         </div>

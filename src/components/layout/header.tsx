@@ -102,6 +102,7 @@ export function Header() {
           {user && (
             <div className="relative" ref={userMenuRef}>
               <button
+                data-tour="settings-access"
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 rounded-full p-1 pr-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >

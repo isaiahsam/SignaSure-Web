@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PenSpinner } from '@/components/ui/pen-loader';
 import { DocumentViewer } from '@/components/analysis/document-viewer';
 import { ResultsPanel } from '@/components/analysis/results-panel';
 import { FlagsTab } from '@/components/analysis/flags-tab';
@@ -120,7 +121,7 @@ export default function AnalysisPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center" style={{ height: 'calc(100vh - 180px)' }}>
-        <Loader2 className="h-12 w-12 animate-spin text-primary-600 mb-4" />
+        <PenSpinner className="w-16 h-16 mb-4" />
         <p className="text-slate-600 dark:text-slate-400">Loading analysis...</p>
       </div>
     );
@@ -207,7 +208,7 @@ export default function AnalysisPage() {
   ];
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
+    <div className="flex flex-col lg:h-[calc(100vh-180px)]">
       {/* Header - Compact */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4 shrink-0">
         <div>
@@ -257,10 +258,10 @@ export default function AnalysisPage() {
         </div>
       </div>
 
-      {/* Split Layout: Document Viewer (LEFT) + Analysis Panel (RIGHT, fills rest) */}
+      {/* Split Layout: Analysis first on mobile, side-by-side on desktop */}
       <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
-        {/* Document Viewer - Fixed width on desktop (LEFT side) */}
-        <div className="w-full lg:w-[450px] lg:shrink-0 h-[400px] lg:h-full">
+        {/* Document Viewer — below analysis on mobile, left on desktop */}
+        <div className="order-2 lg:order-1 w-full lg:w-[450px] lg:shrink-0 h-[200px] lg:h-full">
           <DocumentViewer
             fileUrl={document.fileUrl || null}
             fileName={document.fileName}
@@ -268,8 +269,8 @@ export default function AnalysisPage() {
           />
         </div>
 
-        {/* Tabbed Results Panel - Fills remaining space (RIGHT side) */}
-        <div className="flex-1 min-w-0 h-[500px] lg:h-full overflow-hidden flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        {/* Tabbed Results Panel — first on mobile, right on desktop */}
+        <div className="order-1 lg:order-2 flex-1 min-w-0 lg:h-full overflow-hidden flex flex-col bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
           {/* Tab Navigation */}
           <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700 shrink-0">
             {tabs.map((tab) => (

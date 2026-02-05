@@ -24,7 +24,12 @@
       "Bash(npm view:*)",
       "Bash(python -c:*)",
       "Bash(npm audit:*)",
-      "Bash(del \"public\\\\pdf.worker.min.mjs\")"
+      "Bash(del \"public\\\\pdf.worker.min.mjs\")",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(where:*)",
+      "Bash(npx vercel --version)",
+      "Bash(tree:*)"
     ]
   }
 }

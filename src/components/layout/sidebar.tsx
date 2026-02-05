@@ -19,7 +19,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:pt-16 lg:border-r lg:border-slate-200 lg:dark:border-slate-700 lg:bg-white lg:dark:bg-slate-900">
+      <aside data-tour="sidebar-nav" className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:pt-16 lg:border-r lg:border-slate-200 lg:dark:border-slate-700 lg:bg-white lg:dark:bg-slate-900">
         <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
           <nav className="flex-1 px-4 space-y-1">
             {navItems.map((item) => {
@@ -58,7 +58,7 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 pb-safe">
+      <nav data-tour="mobile-nav" className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 pb-safe">
         <div className="flex items-center justify-around h-16">
           {navItems.map((item) => {
             const isActive = pathname === item.href;

@@ -48,6 +48,13 @@ export function getRiskBgColor(score: number): string {
   return 'bg-red-100 dark:bg-red-900/30';
 }
 
+export function getRiskBarColor(score: number): string {
+  if (score <= 30) return 'bg-green-500';
+  if (score <= 60) return 'bg-yellow-500';
+  if (score <= 80) return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
 export function getRiskLabel(score: number): string {
   if (score <= 30) return 'Low Risk';
   if (score <= 60) return 'Medium Risk';

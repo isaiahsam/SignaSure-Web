@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { PenLoader } from '@/components/ui/pen-loader';
 import { Footer } from '@/components/layout/footer';
 import {
   FileText,
@@ -28,11 +29,7 @@ export default function LandingPage() {
   }, [user, loading, router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
-      </div>
-    );
+    return <PenLoader />;
   }
 
   if (user) {
@@ -81,9 +78,11 @@ export default function LandingPage() {
                   Start Analyzing Free
                 </Button>
               </Link>
-              <Button variant="outline" size="lg">
-                Learn More
-              </Button>
+              <Link href="/about">
+                <Button variant="outline" size="lg">
+                  Learn More
+                </Button>
+              </Link>
             </div>
 
             <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
