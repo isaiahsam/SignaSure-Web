@@ -29,7 +29,9 @@
       "Bash(git push)",
       "Bash(where:*)",
       "Bash(npx vercel --version)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx firebase --version)"
     ]
   }
 }

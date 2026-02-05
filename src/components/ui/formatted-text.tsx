@@ -10,6 +10,10 @@ interface FormattedTextProps {
   onClauseClick?: (clauseId: string) => void;
 }
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Renders text with markdown formatting (bold, italic) and optional clause links
  */
@@ -36,9 +40,9 @@ export function FormattedText({ text, className, clauses, onClauseClick }: Forma
 
         // Create patterns to match clause references
         const patterns = [
-          new RegExp(`(${clause.title})`, 'gi'),
-          new RegExp(`(Clause\\s*${clause.id.replace('clause-', '')})`, 'gi'),
-          new RegExp(`(${clause.id})`, 'gi'),
+          new RegExp(`(${escapeRegExp(clause.title)})`, 'gi'),
+          new RegExp(`(Clause\\s*${escapeRegExp(clause.id.replace('clause-', ''))})`, 'gi'),
+          new RegExp(`(${escapeRegExp(clause.id)})`, 'gi'),
         ];
 
         let remaining = part;

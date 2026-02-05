@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GeminiClient } from '@/lib/gemini/client';
+import { getAdminAuth, getAdminFirestore } from '@/lib/firebase/admin';
 import type { DocumentType, AnalysisResponse } from '@/types';
 
 // Allowed document types for validation
@@ -17,6 +18,9 @@ const ALLOWED_DOCUMENT_TYPES: DocumentType[] = [
 // Maximum text length allowed (50KB of text)
 const MAX_TEXT_LENGTH = 50000;
 
+// Daily analysis limit per user
+const DAILY_LIMIT = 10;
+
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
     // Check for authorization header (Firebase ID token)
@@ -28,6 +32,40 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
           error: 'Authentication required',
         },
         { status: 401 }
+      );
+    }
+
+    // Verify the Firebase ID token server-side
+    const token = authHeader.substring(7);
+    let userId: string;
+
+    try {
+      const decodedToken = await getAdminAuth().verifyIdToken(token);
+      userId = decodedToken.uid;
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid or expired authentication token',
+        },
+        { status: 401 }
+      );
+    }
+
+    // Server-side rate limiting
+    const today = new Date().toISOString().split('T')[0];
+    const db = getAdminFirestore();
+    const usageRef = db.doc(`users/${userId}/usage/${today}`);
+    const usageSnap = await usageRef.get();
+    const currentCount = usageSnap.exists ? (usageSnap.data()?.analysisCount || 0) : 0;
+
+    if (currentCount >= DAILY_LIMIT) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Daily analysis limit reached. Please try again tomorrow.',
+        },
+        { status: 429 }
       );
     }
 
@@ -102,7 +140,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       analysis: {
         id: '', // Will be set by Firestore
         documentId,
-        userId: '', // Will be set by client
+        userId,
         ...result,
         createdAt: new Date(),
       },
@@ -120,6 +158,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         errorMessage = 'Analysis timed out. Please try again.';
       } else if (error.message.includes('rate limit')) {
         errorMessage = 'Service is busy. Please wait a moment and try again.';
+      } else if (error.message.includes('Firebase Admin SDK not configured')) {
+        errorMessage = 'Server authentication is not configured. Please contact support.';
       }
     }
 
