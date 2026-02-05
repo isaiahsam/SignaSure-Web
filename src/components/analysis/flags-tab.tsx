@@ -146,29 +146,29 @@ function FlagItem({ flag }: { flag: Flag }) {
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="p-4 pt-3">
-          <div className="ml-11 space-y-3">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+        <CardContent className="p-4 pt-3 overflow-hidden">
+          <div className="ml-11 space-y-3 overflow-hidden">
+            <p className="text-sm text-slate-600 dark:text-slate-400 break-words">
               <FormattedText text={flag.description} />
             </p>
 
             {flag.originalText && (
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border-l-4 border-slate-300 dark:border-slate-600">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border-l-4 border-slate-300 dark:border-slate-600 overflow-hidden">
                 <p className="text-xs text-slate-500 dark:text-slate-500 mb-1">
                   From the document:
                 </p>
-                <p className="text-sm text-slate-700 dark:text-slate-300 italic">
+                <p className="text-sm text-slate-700 dark:text-slate-300 italic break-words">
                   &ldquo;{flag.originalText}&rdquo;
                 </p>
               </div>
             )}
 
             {flag.recommendation && (
-              <div className="p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20">
+              <div className="p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 overflow-hidden">
                 <p className="text-xs text-primary-600 dark:text-primary-400 font-medium mb-1">
                   Recommendation:
                 </p>
-                <p className="text-sm text-primary-700 dark:text-primary-300">
+                <p className="text-sm text-primary-700 dark:text-primary-300 break-words">
                   <FormattedText text={flag.recommendation} />
                 </p>
               </div>

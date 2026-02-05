@@ -11,6 +11,14 @@ export function buildAnalysisPrompt(
 
 DOCUMENT TYPE: ${documentType}
 USER ROLE (if known): ${roleText}
+- ROLE KEY MEANINGS:
+  - "requesting_party" = The user CREATED/AUTHORED this document for someone else to sign. They are the DRAFTER, not the recipient.
+  - "signing_party" = The user RECEIVED this document and is being asked to sign it. They are the RECIPIENT/SIGNER.
+  - "tenant" = renter, "landlord" = property owner, "employee" = worker, "employer" = company hiring
+  - "buyer" = purchasing, "seller" = selling, "borrower" = taking a loan, "lender" = giving a loan
+  - "client" = paying for service, "provider" = delivering service
+  - "disclosing" = sharing confidential info, "receiving" = receiving confidential info
+- If USER ROLE is provided, you MUST use it as-is. Do NOT override or re-infer the role. The user explicitly chose their role.
 - If USER ROLE is empty/unknown, infer the most likely role from the document (e.g., tenant/landlord, buyer/seller, employee/employer) and state your assumption in the output.
 
 DOCUMENT TEXT:

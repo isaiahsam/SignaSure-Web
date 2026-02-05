@@ -144,23 +144,23 @@ function ClauseItem({ clause, isTargeted }: { clause: Clause; isTargeted?: boole
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="p-4 pt-3">
-          <div className="ml-11 space-y-3">
+        <CardContent className="p-4 pt-3 overflow-hidden">
+          <div className="ml-11 space-y-3 overflow-hidden">
             <div>
               <p className="text-xs text-slate-500 dark:text-slate-500 mb-2">
                 What this means in simple terms:
               </p>
-              <p className="text-sm text-slate-700 dark:text-slate-300">
+              <p className="text-sm text-slate-700 dark:text-slate-300 break-words">
                 <FormattedText text={clause.simplifiedExplanation} />
               </p>
             </div>
 
             {clause.originalText && (
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border-l-4 border-slate-300 dark:border-slate-600">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border-l-4 border-slate-300 dark:border-slate-600 overflow-hidden">
                 <p className="text-xs text-slate-500 dark:text-slate-500 mb-1">
                   Original text:
                 </p>
-                <p className="text-sm text-slate-600 dark:text-slate-400 italic">
+                <p className="text-sm text-slate-600 dark:text-slate-400 italic break-words">
                   &ldquo;{clause.originalText}&rdquo;
                 </p>
               </div>
