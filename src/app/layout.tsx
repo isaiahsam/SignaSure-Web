@@ -22,8 +22,8 @@ export const metadata: Metadata = {
     'risk assessment',
   ],
   icons: {
-    icon: 'https://res.cloudinary.com/dfi78jkbg/image/upload/v1769678443/Signasure_Logo_hk2zit.png',
-    apple: 'https://res.cloudinary.com/dfi78jkbg/image/upload/v1769678443/Signasure_Logo_hk2zit.png',
+    icon: '/favicon.ico',
+    apple: '/favicon.ico',
   },
 };
 

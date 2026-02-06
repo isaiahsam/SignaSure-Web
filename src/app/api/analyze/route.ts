@@ -88,6 +88,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       );
     }
 
+    // Validate documentId format to prevent injection
+    if (!/^[a-zA-Z0-9_-]+$/.test(documentId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid document identifier format',
+        },
+        { status: 400 }
+      );
+    }
+
     // Validate document type
     if (!ALLOWED_DOCUMENT_TYPES.includes(documentType)) {
       return NextResponse.json(

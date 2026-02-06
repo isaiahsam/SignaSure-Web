@@ -31,7 +31,9 @@
       "Bash(npx vercel --version)",
       "Bash(tree:*)",
       "Bash(npm ls:*)",
-      "Bash(npx firebase --version)"
+      "Bash(npx firebase --version)",
+      "Bash(findstr:*)",
+      "Bash(Select-String -Pattern \"\\\\.env\")"
     ]
   }
 }

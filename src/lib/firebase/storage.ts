@@ -15,8 +15,14 @@ export async function uploadDocumentFile(
 ): Promise<string> {
   if (!storage) throw new Error('Firebase Storage not initialized');
 
+  // Sanitize filename to prevent path traversal attacks
+  const sanitizedName = file.name
+    .replace(/\.\./g, '') // Remove directory traversal
+    .replace(/[\/\\]/g, '_') // Replace path separators
+    .replace(/^\./, '_'); // Don't start with a dot
+
   // Create a reference to the file location
-  const fileRef = ref(storage, `users/${userId}/documents/${documentId}/${file.name}`);
+  const fileRef = ref(storage, `users/${userId}/documents/${documentId}/${sanitizedName}`);
 
   // Upload the file
   await uploadBytes(fileRef, file);
@@ -40,6 +46,12 @@ export async function getDocumentFileUrl(
 ): Promise<string> {
   if (!storage) throw new Error('Firebase Storage not initialized');
 
-  const fileRef = ref(storage, `users/${userId}/documents/${documentId}/${fileName}`);
+  // Sanitize filename to prevent path traversal attacks
+  const sanitizedName = fileName
+    .replace(/\.\./g, '')
+    .replace(/[\/\\]/g, '_')
+    .replace(/^\./, '_');
+
+  const fileRef = ref(storage, `users/${userId}/documents/${documentId}/${sanitizedName}`);
   return getDownloadURL(fileRef);
 }
