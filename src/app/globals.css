@@ -132,6 +132,76 @@
   animation: toast-exit 0.3s ease-in forwards;
 }
 
+/* Marquee scrolling ticker */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+  display: inline-flex;
+  will-change: transform;
+}
+
+/* Phone float animation */
+@keyframes phone-float {
+  0%, 100% { transform: translateY(0px);    }
+  50%       { transform: translateY(-14px);  }
+}
+.animate-phone-float {
+  animation: phone-float 5.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Floating badge animations */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px);    }
+  50%       { transform: translateY(-8px);   }
+}
+@keyframes float-slow-delayed {
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-6px); }
+}
+.animate-float-slow {
+  animation: float-slow 4s ease-in-out infinite;
+}
+.animate-float-slow-delayed {
+  animation: float-slow-delayed 4.5s ease-in-out 1.2s infinite;
+}
+
+/* Hero gradient text */
+.hero-gradient-text {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hero underline expand animation */
+@keyframes underline-expand {
+  from {
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+}
+
+.hero-underline {
+  display: block;
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  border-radius: 9999px;
+  animation: underline-expand 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+  transform-origin: left center;
+}
+
 /* Disable animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .animate-page-enter,
